@@ -14,7 +14,7 @@
 // We use a simple array to hold module structures
 #define MAX_MODULES 16
 
-typedef int (*module_func_t) ( rfca_t*, int argc, char** argv );
+typedef int (*module_func_t) ( rfca_opts_t, int argc, char** argv );
 
 typedef struct {
     const char* identifier; 
@@ -33,6 +33,6 @@ vouw_register_module( vouw_module_t* m );
 
 /* Call a module with the given identifier and arguments */
 int
-vouw_call_module( const char* ident, rfca_t* automaton, int argc, char** argv );
+vouw_call_module( const char* ident, rfca_opts_t opts, int argc, char** argv );
 
 #endif

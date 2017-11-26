@@ -27,10 +27,14 @@ typedef struct {
 } rfca_row_t;
 
 typedef struct {
+    int row;
+    int col;
+} rfca_coord_t;
+
+typedef struct {
     rfca_opts_t opts;
     int folds;
-    int curRow;
-    int curPos;
+    rfca_coord_t cur;
     uint8_t* ttable;
     rfca_row_t* rows;
     int rowCount;
@@ -50,8 +54,11 @@ rfca_maxRules( int mode, int base );
 void
 rfca_generate( rfca_t* r );
 
+uint8_t 
+rfca_value( rfca_t* r, int row, int col );
 
-
+int 
+rfca_rowLength( rfca_t* r, int row );
 
 #endif
 

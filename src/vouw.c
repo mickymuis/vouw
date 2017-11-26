@@ -25,7 +25,7 @@ vouw_print_modules( FILE* f ) {
 void
 vouw_register_module( vouw_module_t* m ) {
     if( NUM_MODULES >= MAX_MODULES ) {
-        fprintf( stderr, "Number of modules exceeds MAX_MODULES\n" );
+        fprintf( stderr, "Error: Number of modules exceeds MAX_MODULES\n" );
         return;
     }
     MODULES[NUM_MODULES++] = m;
@@ -33,7 +33,7 @@ vouw_register_module( vouw_module_t* m ) {
 
 /* Call a module with the given identifier and arguments */
 int
-vouw_call_module( const char* ident, rfca_t* automaton, int argc, char** argv ) {
+vouw_call_module( const char* ident, rfca_opts_t opts, int argc, char** argv ) {
     vouw_module_t* m = NULL;
 
     for( int i =0; i < NUM_MODULES; i++ ) {
@@ -43,9 +43,9 @@ vouw_call_module( const char* ident, rfca_t* automaton, int argc, char** argv ) 
         m =NULL;
     }
     if( m ) {
-        return m->entrypoint( automaton, argc, argv );
+        return m->entrypoint( opts, argc, argv );
     }
-    fprintf( stderr, "No such module `%s'.\n", ident );
+    fprintf( stderr, "Error: No such module `%s'.\n", ident );
     return -1;
 }
 

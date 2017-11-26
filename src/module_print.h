@@ -10,7 +10,7 @@
 
 #include "rfca.h"
 
-int print_main( rfca_t* automaton, int argc, char** argv );
+int print_main( rfca_opts_t opts, int argc, char** argv );
 
 #endif
 

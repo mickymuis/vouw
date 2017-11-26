@@ -10,6 +10,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "vouw.h"
 #include "rfca.h"
 
@@ -23,6 +24,11 @@
 #define MODE_MAX 2
 #define FOLDS_DEFAULT 0
 #define FOLDS_MAX 10000
+#define INPUT_MAX 500
+
+#ifndef MAX
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#endif
 
 void 
 print_help( char* exec ) {
@@ -57,7 +63,7 @@ main( int argc, char** argv ) {
     bool param_right =false;
     uint64_t param_rule =0;
     int param_base =BASE_DEFAULT;
-    int param_folds =FOLD_DEFAULT;
+    int param_folds =FOLDS_DEFAULT;
     const char* param_outfile = NULL;
     const char* param_module = NULL;
     const char* param_input = NULL;
@@ -112,7 +118,7 @@ main( int argc, char** argv ) {
         fprintf( stderr, "Error: Parameter `folds' larger than allowed maximum (%d)", FOLDS_MAX );
         return -1;
     }
-    opts.folds = param_folds;
+    opts.mode = param_mode;
     if( opts.mode < 2 || opts.mode > MODE_MAX ) {
         fprintf( stderr, "Error: Parameter `mode' larger than allowed maximum (%d) or smaller than 2", MODE_MAX );
         return -1;
@@ -128,12 +134,30 @@ main( int argc, char** argv ) {
         fprintf( stderr, "Error: Parameter `rule' larger than allowed maximum (%"PRIu64") for the specified base and mode", maxrules );
         return -1;
     }
+    int inputLen = param_input == NULL ? 0 : strlen( param_input );
+    if( inputLen > INPUT_MAX ) {
+        fprintf( stderr, "Error: Parameter `input' longer than allowed maximum (%d)", INPUT_MAX );
+        return -1;
 
-
+    }
+    opts.inputSize = MAX( inputLen, opts.mode );
+    opts.input = malloc( sizeof(uint8_t) * opts.inputSize );
+    memset( opts.input, 0, opts.inputSize );
+    for( int i =0; i < inputLen; i++ ) {
+        uint8_t v = param_input[i] - '0';
+        if( !isdigit( param_input[i] ) || v >= opts.mode ) {
+            fprintf( stderr, "Error: Parameter `input' Contains disallowed character (%c)", param_input[i] );
+            return -1;
+        }
+        opts.input[i] = v;
+    }
 
     fprintf( stderr, "Rule: %"PRIu64", base: %d, mode %d, folds: %d\n",
             param_rule, param_base, param_mode, param_folds );
 
-    return vouw_call_module( param_module, 0, 0, 0 );
+    int retval = vouw_call_module( param_module, opts, argc, argv );
+
+    free( opts.input );
+    return retval;
 
 }

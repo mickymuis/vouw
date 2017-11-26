@@ -7,13 +7,14 @@
 
 #include "rfca.h"
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
-typedef struct {
-    int row;
-    int col;
-} rfca_coord_t;
+#define STEP_REDUCE 1
+#define STEP_FOLD 2
+#define STEP_DONE 0
 
 /* Calculate a^b with 64-bit integers */
 uint64_t
@@ -27,9 +28,11 @@ pow64( uint64_t a, uint64_t b ) {
     return p*p;
 }
 
-/* Produce a transition table given base, mode and rule#
+/* 
+ * Produce a transition table given base, mode and rule#
  * Returns a pointer to an array of length (base^mode)
- * Each index corresponds to the enumerated rule in a canonical ordering */
+ * Each index corresponds to the enumerated rule in a canonical ordering 
+ */
 uint8_t*
 makeTTable( int base, int mode, uint64_t rule ) {
     int rulesize = pow64( base, mode );
@@ -47,9 +50,11 @@ makeTTable( int base, int mode, uint64_t rule ) {
     return tt;
 }
 
-/* Given base and mode, return the rule number that indexes the transition table
+/* 
+ * Given base and mode, return the rule number that indexes the transition table
  * In order to compute the rule number, mode bytes are read from A
- * The bytes in A..A+mode-1 are assumed to be smaller than base */
+ * The bytes in A..A+mode-1 are assumed to be smaller than base 
+ */
 int
 ttIndex( int base, int mode, uint8_t* A ) {
     int mult =1;
@@ -61,6 +66,13 @@ ttIndex( int base, int mode, uint8_t* A ) {
     return index;
 }
 
+/*
+ * Construct a new rfca_t object given the parameters in opts.
+ * All memory will be pre-allocated, thus shrinking/growing is not possible after this call.
+ * Also computed the transition table for the given base/mode/rule, but the nodes are not
+ * yet computed (see rfca_generate())
+ * Returns a pointer to a heap-allocated instance of the object.
+ */
 rfca_t*
 rfca_create( rfca_opts_t opts ) {
     rfca_t* r = malloc( sizeof( rfca_t ) );
@@ -86,13 +98,14 @@ rfca_create( rfca_opts_t opts ) {
         r->rows[i].size = rowLength;
         r->rows[i].cols = malloc( sizeof( uint8_t ) * rowLength );
         memset( r->rows[i].cols, 0, rowLength );
+        rowLength -= opts.mode-1;
     }
 
     // Write the input at the beginning
     // If right == true, we simply reverse the input in order to keep all other code simpler
     for( i =0; i < opts.inputSize; i++ ) {
         r->rows[0].cols[i] = 
-            opts.right ? opts.input[(opts.inputSize - 1)- i] : opts.input[i];
+            opts.right ? opts.input[i] : opts.input[(opts.inputSize - 1)- i];
 
         // Sanity check, user input should also be checked elsewhere!
         if( r->rows[0].cols[i] >= opts.base ) 
@@ -100,8 +113,8 @@ rfca_create( rfca_opts_t opts ) {
     }
 
     r->folds = 0; // FIXME remove
-    r->curRow = 0;
-    r->curPos = opts.inputSize-1; // Position at the last input node
+    r->cur.row = 0;
+    r->cur.col = opts.inputSize-1; // Position at the last input node
 
     // Finally, populate the transition table based on base, mode and rule number
     r->ttable = makeTTable( opts.base, opts.mode, opts.rule );
@@ -109,6 +122,9 @@ rfca_create( rfca_opts_t opts ) {
     return r;
 }
 
+/* 
+ * Release all memory occupied by the rfca_t object and its underlying structures 
+ */
 void
 rfca_free( rfca_t* r ) {
     for( int i =0; i < r->rowCount; i++ ) {
@@ -119,10 +135,138 @@ rfca_free( rfca_t* r ) {
     free( r );
 }
 
+/* 
+ * Compute the total number of rules given a mode and base 
+ */
 uint64_t
 rfca_maxRules( int mode, int base ) {
     uint64_t rulesize = pow64( base, mode );
     return pow64( base, rulesize );
 }
 
+/* 
+ * Given a {row,col}, calculate the position of the next node
+ */
+rfca_coord_t
+next( rfca_t* r, rfca_coord_t c ) {
+    // Length of this row if only the original input was used
+    int unfoldedRowLength = r->opts.inputSize - c.row * (r->opts.mode-1);
+    // Last row that contains nodes reduced from original input
+    int lastInputRow = r->opts.inputSize / (r->opts.mode-1) - 1;
+    if( r->opts.inputSize % (r->opts.mode-1) != 0 )
+        lastInputRow++;
 
+    if( c.col < unfoldedRowLength && c.row <= lastInputRow ) {
+        if( c.col == unfoldedRowLength - 1 ) {
+            if( c.row == lastInputRow ) {
+                // First pivot
+                // { col: inputSize, row: 0 }
+                c.col = r->opts.inputSize;
+                c.row = 0;
+            } else {
+                // Next row
+                // { col: 0, row: row + 1 }
+                c.col = 0;
+                c.row++;
+            }
+        }
+        else {
+            // Next col
+            // { col: col + 1, row: row };
+            c.col++;
+        }
+    }
+    else if( c.col == 0 ) {
+        // Pivot -> fold
+        // { col: inputSize + (row - lastInputRow), row: 0 }
+        c.col = r->opts.inputSize + (c.row - lastInputRow);
+        c.row = 0;
+
+    } 
+    else {
+        // Next row in when folding
+        // { col: col - 1, row: row + 1 }
+        c.col--;
+        c.row++;
+    }
+    return c;
+}
+
+/* 
+ * Advance the automaton by one step 
+ */
+int 
+step( rfca_t* r ) {
+    //fprintf( stdout, "{row: %d, col: %d}\n", r->cur.row, r->cur.col );
+    // Step 0.: compute the node position that needs to be updated
+    rfca_coord_t nextPos = next( r, r->cur );
+    if( nextPos.col >= r->width || nextPos.row >= r->rowCount )
+        return STEP_DONE;
+
+    // Step 1a. check whether a special action is required
+    if( nextPos.row == 0 ) {
+        // Top row, which means the next step can only be a fold
+        // Step 1b. copy ('fold') the apex/singleton row over to the top row
+        int i = r->cur.row;
+        uint8_t foldValue = r->rows[i].cols[0];
+        r->rows[0].cols[nextPos.col] = foldValue;
+        
+        r->folds++;
+        r->cur = nextPos;
+        return STEP_FOLD;
+    }
+    // Now we calculate the next iteration by reduction
+    // Step 1. get values from parent nodes (one row up)
+    uint8_t* parents = r->rows[nextPos.row-1].cols + nextPos.col;
+
+    // Step 2. Use the transition table to obtain the value for the current node
+    int i = ttIndex( r->opts.base, r->opts.mode, parents );
+    uint8_t value =r->ttable[i];
+    r->rows[nextPos.row].cols[nextPos.col] = value;
+
+    r->cur = nextPos;
+    return STEP_REDUCE;
+}
+
+/*
+ * Compute the values for all allocated nodes 
+ */
+void
+rfca_generate( rfca_t* r ) {
+    while( step( r ) != STEP_DONE );
+}
+
+/*
+ * Returns the transposed (mirrored) coordinates for {col,row}
+ * This translates internal coordinates to logical (abstracted) coordinates
+ */
+rfca_coord_t
+transpose( rfca_t* r, rfca_coord_t c ) {
+    assert( c.row < r->rowCount );
+    if( r->opts.right )
+        return c; // Not mirrored
+    // Mirrored 
+    c.col = (r->rows[c.row].size-1) - c.col;
+    return c;
+}
+
+/*
+ * Returns the value of the node at the logical coordinate c
+ */
+uint8_t 
+rfca_value( rfca_t* r, int row, int col ) {
+    rfca_coord_t c = { row, col };
+    c = transpose( r, c );
+    assert( c.col < r->rows[c.row].size );
+    return r->rows[c.row].cols[c.col];
+}
+
+/*
+ * Returns the number of columns in row `row'
+ */
+int 
+rfca_rowLength( rfca_t* r, int row ) {
+    if( row >= r->rowCount )
+        return 0;
+    return r->rows[row].size;
+}
