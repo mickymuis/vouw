@@ -10,6 +10,11 @@ list (APPEND CMAKE_C_FLAGS "-g -std=c99")
         src/main.c 
         src/vouw.c
         src/rfca.c
-        src/module_print.c )
+        src/ttable.c
+        src/pattern.c
+        src/region.c
+        src/encoded_rfca.c
+        src/module_print.c
+        src/module_encode.c )
 
 target_link_libraries (vouw "-lm" )

@@ -1,5 +1,5 @@
 /*
- * VOUW - Generation, encoding and pattern-mining of Reduce-Fold Cellular Automata
+ * VOUW - Generating, encoding and pattern-mining of Reduce-Fold Cellular Automata
  *
  * Micky Faas <micky@edukitty.org> 
  * Leiden Institute for Advanced Computer Science
@@ -10,7 +10,10 @@
 
 #include "rfca.h"
 
-int print_main( rfca_opts_t opts, int argc, char** argv );
+int module_print( rfca_opts_t opts, int argc, char** argv );
+
+int module_printTTable( rfca_opts_t opts, int argc, char** argv );
+int module_printTTable2( rfca_opts_t opts, int argc, char** argv );
 
 #endif
 

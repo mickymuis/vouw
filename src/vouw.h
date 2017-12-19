@@ -1,5 +1,5 @@
 /*
- * VOUW - Generation, encoding and pattern-mining of Reduce-Fold Cellular Automata
+ * VOUW - Generating, encoding and pattern-mining of Reduce-Fold Cellular Automata
  *
  * Micky Faas <micky@edukitty.org> 
  * Leiden Institute for Advanced Computer Science

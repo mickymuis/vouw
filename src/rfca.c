@@ -1,5 +1,5 @@
 /*
- * VOUW - Generation, encoding and pattern-mining of Reduce-Fold Cellular Automata
+ * VOUW - Generating, encoding and pattern-mining of Reduce-Fold Cellular Automata
  *
  * Micky Faas <micky@edukitty.org> 
  * Leiden Institute for Advanced Computer Science
@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include "ttable.h"
 
 #define STEP_REDUCE 1
 #define STEP_FOLD 2
@@ -28,43 +29,6 @@ pow64( uint64_t a, uint64_t b ) {
     return p*p;
 }
 
-/* 
- * Produce a transition table given base, mode and rule#
- * Returns a pointer to an array of length (base^mode)
- * Each index corresponds to the enumerated rule in a canonical ordering 
- */
-uint8_t*
-makeTTable( int base, int mode, uint64_t rule ) {
-    int rulesize = pow64( base, mode );
-    uint8_t* tt = malloc( sizeof( uint8_t ) * rulesize );
-
-    memset( tt, 0, rulesize );
-
-    uint64_t decimal = rule;
-    int i = rulesize - 1;
-    while( i >= 0 && decimal > 0 ) {
-        tt[i] = decimal % base;
-        decimal = decimal / base;
-        i--;
-    }
-    return tt;
-}
-
-/* 
- * Given base and mode, return the rule number that indexes the transition table
- * In order to compute the rule number, mode bytes are read from A
- * The bytes in A..A+mode-1 are assumed to be smaller than base 
- */
-int
-ttIndex( int base, int mode, uint8_t* A ) {
-    int mult =1;
-    int index =0;
-    for( int i = mode-1; i >= 0; i-- ) {
-        index += A[i] * mult;
-        mult *= base;
-    }
-    return index;
-}
 
 /*
  * Construct a new rfca_t object given the parameters in opts.
@@ -117,7 +81,7 @@ rfca_create( rfca_opts_t opts ) {
     r->cur.col = opts.inputSize-1; // Position at the last input node
 
     // Finally, populate the transition table based on base, mode and rule number
-    r->ttable = makeTTable( opts.base, opts.mode, opts.rule );
+    r->ttable = tt_make( opts.base, opts.mode, opts.rule );
 
     return r;
 }
@@ -139,7 +103,7 @@ rfca_free( rfca_t* r ) {
  * Compute the total number of rules given a mode and base 
  */
 uint64_t
-rfca_maxRules( int mode, int base ) {
+rfca_maxRules( int base, int mode ) {
     uint64_t rulesize = pow64( base, mode );
     return pow64( base, rulesize );
 }
@@ -220,7 +184,7 @@ step( rfca_t* r ) {
     uint8_t* parents = r->rows[nextPos.row-1].cols + nextPos.col;
 
     // Step 2. Use the transition table to obtain the value for the current node
-    int i = ttIndex( r->opts.base, r->opts.mode, parents );
+    int i = tt_index( r->opts.base, r->opts.mode, parents );
     uint8_t value =r->ttable[i];
     r->rows[nextPos.row].cols[nextPos.col] = value;
 
@@ -255,10 +219,43 @@ transpose( rfca_t* r, rfca_coord_t c ) {
  */
 uint8_t 
 rfca_value( rfca_t* r, int row, int col ) {
+    assert( row < r->rowCount );
     rfca_coord_t c = { row, col };
+    return rfca_coord_value( r, c );
+}
+
+/*
+ * Returns the value of the node at the logical coordinate c
+ */
+uint8_t 
+rfca_coord_value( rfca_t* r, rfca_coord_t c ) {
     c = transpose( r, c );
     assert( c.col < r->rows[c.row].size );
+    assert( c.row < r->rowCount );
     return r->rows[c.row].cols[c.col];
+}
+
+/*
+ * Changes the value on logical coordinate {row,col} to value
+ * Note that this is not the normal operation of the automaton
+ */
+void
+rfca_setValue( rfca_t* r, int row, int col, uint8_t value ) {
+    assert( row < r->rowCount );
+    rfca_coord_t c = { row, col };
+    rfca_coord_setValue( r, c, value );
+}
+
+/*
+ * Changes the value on logical coordinate c to value
+ * Note that this is not the normal operation of the automaton
+ */
+void
+rfca_coord_setValue( rfca_t* r, rfca_coord_t c, uint8_t value ) {
+    c = transpose( r, c );
+    assert( c.col < r->rows[c.row].size );
+    assert( c.row < r->rowCount );
+    r->rows[c.row].cols[c.col] = value;
 }
 
 /*
