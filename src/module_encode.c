@@ -29,12 +29,12 @@ encoded_print( encoded_rfca_t* v  ) {
 
         for( int i =0; i < pattern->size; i++ ) {
             rfca_coord_t coord = pattern_offset_abs( region->pivot, pattern->offsets[i] );
-            rfca_coord_setValue( print, coord, (uint8_t)pattern->label );
+            rfca_coord_setValue( print, coord, (rfca_node_t)pattern->label );
         }
     }
 
     // Pretty print the result
-    for( int i =0; i < print->rowCount; i++ ) {
+    for( int i =0; i < print->buffer->rowCount; i++ ) {
         for( int k =0; k < i * (print->opts.mode-1); k++ )
             fprintf( stdout, " " );
         for( int j =0; j < rfca_rowLength( print, i ); j++ ) {

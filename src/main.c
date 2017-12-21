@@ -157,7 +157,7 @@ main( int argc, char** argv ) {
 
     }
     opts.inputSize = MAX( inputLen, opts.mode );
-    opts.input = malloc( sizeof(uint8_t) * opts.inputSize );
+    opts.input = malloc( sizeof(rfca_node_t) * opts.inputSize );
     memset( opts.input, 0, opts.inputSize );
     for( int i =0; i < inputLen; i++ ) {
         uint8_t v = param_input[i] - '0';

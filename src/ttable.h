@@ -10,23 +10,23 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "rfca.h"
+#include "rfca_buffer.h"
 
 void
-varbase_incr( uint8_t A[], int base, int length );
+varbase_incr( rfca_node_t A[], int base, int length );
 
 // Simple array-based transition tables
 
-uint8_t*
+rfca_node_t*
 tt_make( int base, int mode, uint64_t rule );
 int
-tt_index( int base, int mode, uint8_t* A );
+tt_index( int base, int mode, rfca_node_t* A );
 
 // Elaborate transition tables, level 1
 
 typedef struct {
-    uint8_t* in;
-    uint8_t* out;
+    rfca_node_t* in;
+    rfca_node_t* out;
 } ttable_entry_t;
 
 typedef struct {

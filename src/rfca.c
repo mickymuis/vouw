@@ -42,38 +42,17 @@ rfca_create( rfca_opts_t opts ) {
     rfca_t* r = malloc( sizeof( rfca_t ) );
 
     r->opts = opts;
-
-    // We will preallocate everything, growing/shrinking is NOT support for performance concerns
-    // Calculate the final number of rows and columns
-    r->width = opts.inputSize + opts.folds;
-    r->rowCount = 1;
-    int i =r->width;
-    r->nodeCount =i;
-    while( i >= opts.mode ) {
-        i -= opts.mode-1;
-        r->rowCount++;
-        r->nodeCount += i;
-    }
-
-    // Allocate and zero all rows
-    r->rows = malloc( sizeof( rfca_row_t ) * r->rowCount );
-    int rowLength = r->width;
-    for( i =0; i < r->rowCount; i++ ) {
-        r->rows[i].size = rowLength;
-        r->rows[i].cols = malloc( sizeof( uint8_t ) * rowLength );
-        memset( r->rows[i].cols, 0, rowLength );
-        rowLength -= opts.mode-1;
-    }
+    r->buffer = rfca_buffer_create( opts.inputSize + opts.folds, opts.mode );
 
     // Write the input at the beginning
     // If right == true, we simply reverse the input in order to keep all other code simpler
-    for( i =0; i < opts.inputSize; i++ ) {
-        r->rows[0].cols[i] = 
+    for( int i =0; i < opts.inputSize; i++ ) {
+        r->buffer->rows[0].cols[i] = 
             opts.right ? opts.input[i] : opts.input[(opts.inputSize - 1)- i];
 
         // Sanity check, user input should also be checked elsewhere!
-        if( r->rows[0].cols[i] >= opts.base ) 
-            r->rows[0].cols[i] = opts.base-1;
+        if( r->buffer->rows[0].cols[i] >= opts.base ) 
+            r->buffer->rows[0].cols[i] = opts.base-1;
     }
 
     r->folds = 0; // FIXME remove
@@ -91,11 +70,8 @@ rfca_create( rfca_opts_t opts ) {
  */
 void
 rfca_free( rfca_t* r ) {
-    for( int i =0; i < r->rowCount; i++ ) {
-        free( r->rows[i].cols );
-    }
-    free( r->rows );
     free( r->ttable );
+    rfca_buffer_free( r->buffer );
     free( r );
 }
 
@@ -164,7 +140,7 @@ step( rfca_t* r ) {
     //fprintf( stdout, "{row: %d, col: %d}\n", r->cur.row, r->cur.col );
     // Step 0.: compute the node position that needs to be updated
     rfca_coord_t nextPos = next( r, r->cur );
-    if( nextPos.col >= r->width || nextPos.row >= r->rowCount )
+    if( nextPos.col >= r->buffer->width || nextPos.row >= r->buffer->rowCount )
         return STEP_DONE;
 
     // Step 1a. check whether a special action is required
@@ -172,8 +148,8 @@ step( rfca_t* r ) {
         // Top row, which means the next step can only be a fold
         // Step 1b. copy ('fold') the apex/singleton row over to the top row
         int i = r->cur.row;
-        uint8_t foldValue = r->rows[i].cols[0];
-        r->rows[0].cols[nextPos.col] = foldValue;
+        rfca_node_t foldValue = r->buffer->rows[i].cols[0];
+        r->buffer->rows[0].cols[nextPos.col] = foldValue;
         
         r->folds++;
         r->cur = nextPos;
@@ -181,12 +157,12 @@ step( rfca_t* r ) {
     }
     // Now we calculate the next iteration by reduction
     // Step 1. get values from parent nodes (one row up)
-    uint8_t* parents = r->rows[nextPos.row-1].cols + nextPos.col;
+    rfca_node_t* parents = r->buffer->rows[nextPos.row-1].cols + nextPos.col;
 
     // Step 2. Use the transition table to obtain the value for the current node
     int i = tt_index( r->opts.base, r->opts.mode, parents );
-    uint8_t value =r->ttable[i];
-    r->rows[nextPos.row].cols[nextPos.col] = value;
+    rfca_node_t value =r->ttable[i];
+    r->buffer->rows[nextPos.row].cols[nextPos.col] = value;
 
     r->cur = nextPos;
     return STEP_REDUCE;
@@ -206,20 +182,20 @@ rfca_generate( rfca_t* r ) {
  */
 rfca_coord_t
 transpose( rfca_t* r, rfca_coord_t c ) {
-    assert( c.row < r->rowCount );
+    assert( c.row < r->buffer->rowCount );
     if( r->opts.right )
         return c; // Not mirrored
     // Mirrored 
-    c.col = (r->rows[c.row].size-1) - c.col;
+    c.col = (r->buffer->rows[c.row].size-1) - c.col;
     return c;
 }
 
 /*
  * Returns the value of the node at the logical coordinate c
  */
-uint8_t 
+rfca_node_t 
 rfca_value( rfca_t* r, int row, int col ) {
-    assert( row < r->rowCount );
+    assert( row < r->buffer->rowCount );
     rfca_coord_t c = { row, col };
     return rfca_coord_value( r, c );
 }
@@ -227,12 +203,12 @@ rfca_value( rfca_t* r, int row, int col ) {
 /*
  * Returns the value of the node at the logical coordinate c
  */
-uint8_t 
+rfca_node_t 
 rfca_coord_value( rfca_t* r, rfca_coord_t c ) {
     c = transpose( r, c );
-    assert( c.col < r->rows[c.row].size );
-    assert( c.row < r->rowCount );
-    return r->rows[c.row].cols[c.col];
+    assert( c.col < r->buffer->rows[c.row].size );
+    assert( c.row < r->buffer->rowCount );
+    return r->buffer->rows[c.row].cols[c.col];
 }
 
 /*
@@ -240,8 +216,8 @@ rfca_coord_value( rfca_t* r, rfca_coord_t c ) {
  * Note that this is not the normal operation of the automaton
  */
 void
-rfca_setValue( rfca_t* r, int row, int col, uint8_t value ) {
-    assert( row < r->rowCount );
+rfca_setValue( rfca_t* r, int row, int col, rfca_node_t value ) {
+    assert( row < r->buffer->rowCount );
     rfca_coord_t c = { row, col };
     rfca_coord_setValue( r, c, value );
 }
@@ -251,11 +227,11 @@ rfca_setValue( rfca_t* r, int row, int col, uint8_t value ) {
  * Note that this is not the normal operation of the automaton
  */
 void
-rfca_coord_setValue( rfca_t* r, rfca_coord_t c, uint8_t value ) {
+rfca_coord_setValue( rfca_t* r, rfca_coord_t c, rfca_node_t value ) {
     c = transpose( r, c );
-    assert( c.col < r->rows[c.row].size );
-    assert( c.row < r->rowCount );
-    r->rows[c.row].cols[c.col] = value;
+    assert( c.col < r->buffer->rows[c.row].size );
+    assert( c.row < r->buffer->rowCount );
+    r->buffer->rows[c.row].cols[c.col] = value;
 }
 
 /*
@@ -263,7 +239,7 @@ rfca_coord_setValue( rfca_t* r, rfca_coord_t c, uint8_t value ) {
  */
 int 
 rfca_rowLength( rfca_t* r, int row ) {
-    if( row >= r->rowCount )
+    if( row >= r->buffer->rowCount )
         return 0;
-    return r->rows[row].size;
+    return r->buffer->rows[row].size;
 }

@@ -12,13 +12,13 @@
 
 void
 rfca_print( rfca_t* r, bool pretty ) {
-    for( int i =0; i < r->rowCount; i++ ) {
+    for( int i =0; i < r->buffer->rowCount; i++ ) {
         if( pretty ) {
             for( int k =0; k < i * (r->opts.mode-1); k++ )
                 fprintf( stdout, " " );
         }
         for( int j =0; j < rfca_rowLength( r, i ); j++ ) {
-            fprintf( stdout, "%d", rfca_value( r, i, j ) );
+            fprintf( stdout, "%d", (int)rfca_value( r, i, j ) );
             if( pretty ) fprintf( stdout, " " );
         }
         fprintf( stdout, "\n" );

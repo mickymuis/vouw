@@ -48,8 +48,8 @@ encoded_create_from( rfca_t* r ) {
     INIT_LIST_HEAD( &(v->encoded->list) );
 
     // Now we encode each node in the automaton using the standard code table
-    for( int i =0; i < r->rowCount; i++ ) {
-        rfca_row_t* row = &r->rows[i];
+    for( int i =0; i < r->buffer->rowCount; i++ ) {
+        rfca_row_t* row = &r->buffer->rows[i];
         for( int j =0; j < row->size; j++ ) {
             region_list_t* tmp;
             tmp = (region_list_t*)malloc( sizeof( region_list_t ) );

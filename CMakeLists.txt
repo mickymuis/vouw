@@ -9,6 +9,7 @@ list (APPEND CMAKE_C_FLAGS "-g -std=c99")
     add_executable(vouw 
         src/main.c 
         src/vouw.c
+        src/rfca_buffer.c
         src/rfca.c
         src/ttable.c
         src/pattern.c
