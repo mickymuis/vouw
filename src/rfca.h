@@ -23,11 +23,6 @@ typedef struct {
 } rfca_opts_t;
 
 typedef struct {
-    int row;
-    int col;
-} rfca_coord_t;
-
-typedef struct {
     rfca_opts_t opts;
     int folds;
     rfca_coord_t cur;
@@ -51,13 +46,13 @@ rfca_node_t
 rfca_value( rfca_t* r, int row, int col );
 
 rfca_node_t 
-rfca_coord_value( rfca_t* r, rfca_coord_t c );
+rfca_valueC( rfca_t* r, rfca_coord_t c );
 
 void
 rfca_setValue( rfca_t* r, int row, int col, rfca_node_t value );
 
 void
-rfca_coord_setValue( rfca_t* r, rfca_coord_t c, rfca_node_t value );
+rfca_setValueC( rfca_t* r, rfca_coord_t c, rfca_node_t value );
 
 int 
 rfca_rowLength( rfca_t* r, int row );

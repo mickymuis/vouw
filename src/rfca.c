@@ -197,14 +197,14 @@ rfca_node_t
 rfca_value( rfca_t* r, int row, int col ) {
     assert( row < r->buffer->rowCount );
     rfca_coord_t c = { row, col };
-    return rfca_coord_value( r, c );
+    return rfca_valueC( r, c );
 }
 
 /*
  * Returns the value of the node at the logical coordinate c
  */
 rfca_node_t 
-rfca_coord_value( rfca_t* r, rfca_coord_t c ) {
+rfca_valueC( rfca_t* r, rfca_coord_t c ) {
     c = transpose( r, c );
     assert( c.col < r->buffer->rows[c.row].size );
     assert( c.row < r->buffer->rowCount );
@@ -219,7 +219,7 @@ void
 rfca_setValue( rfca_t* r, int row, int col, rfca_node_t value ) {
     assert( row < r->buffer->rowCount );
     rfca_coord_t c = { row, col };
-    rfca_coord_setValue( r, c, value );
+    rfca_setValueC( r, c, value );
 }
 
 /*
@@ -227,7 +227,7 @@ rfca_setValue( rfca_t* r, int row, int col, rfca_node_t value ) {
  * Note that this is not the normal operation of the automaton
  */
 void
-rfca_coord_setValue( rfca_t* r, rfca_coord_t c, rfca_node_t value ) {
+rfca_setValueC( rfca_t* r, rfca_coord_t c, rfca_node_t value ) {
     c = transpose( r, c );
     assert( c.col < r->buffer->rows[c.row].size );
     assert( c.row < r->buffer->rowCount );

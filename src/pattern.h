@@ -24,7 +24,9 @@ pattern_offset_abs( rfca_coord_t c, pattern_offset_t offs );
 typedef struct {
     pattern_offset_t* offsets;
 //    size_t blockSize;
+    unsigned int usage;
     unsigned int size;
+    double codeLength;
     char label; // for debug printing
 } pattern_t;
 
@@ -39,6 +41,9 @@ pattern_create_single( int value );
 void
 pattern_free( pattern_t* p );
 
+void
+pattern_updateCodeLength( pattern_t* p, unsigned int totalNodeCount );
+
 pattern_list_t*
 pattern_list_createHead();
 
@@ -48,5 +53,7 @@ pattern_list_free( pattern_list_t* list, bool free_patterns );
 void 
 pattern_list_setLabels( pattern_list_t* list );
 
+double
+pattern_list_computeCodeLength( pattern_list_t* list, unsigned int totalNodeCount );
 
 #endif

@@ -15,16 +15,21 @@
 typedef struct {
     region_list_t* encoded;
     pattern_list_t* codeTable;
+    rfca_buffer_t* index;
     rfca_t *rfca;
-    unsigned int encodedBits;
-    unsigned int ctBits;
+    double encodedBits;
+    double ctBits;
+    double stdBitsPerSingleton;
 } encoded_rfca_t;
 
 encoded_rfca_t*
-encoded_create_from( rfca_t* r );
+encoded_create_from( rfca_t* v );
 
 void
-encoded_free( encoded_rfca_t* r );
+encoded_free( encoded_rfca_t* v );
+
+int
+encoded_step( encoded_rfca_t* v );
 
 
 

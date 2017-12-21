@@ -15,6 +15,7 @@ encoded_print( encoded_rfca_t* v  ) {
     // Label all the patterns so we can print them
     pattern_list_setLabels( v->codeTable );
 
+/*
     // Let's abuse the RFCA datastructure to hold our rendered structure
     rfca_opts_t opts = v->rfca->opts;
     opts.right =true;
@@ -29,22 +30,26 @@ encoded_print( encoded_rfca_t* v  ) {
 
         for( int i =0; i < pattern->size; i++ ) {
             rfca_coord_t coord = pattern_offset_abs( region->pivot, pattern->offsets[i] );
-            rfca_coord_setValue( print, coord, (rfca_node_t)pattern->label );
+            rfca_setValueC( print, coord, (rfca_node_t)pattern->label );
         }
-    }
+    }*/
 
     // Pretty print the result
-    for( int i =0; i < print->buffer->rowCount; i++ ) {
-        for( int k =0; k < i * (print->opts.mode-1); k++ )
+    for( int i =0; i < v->index->rowCount; i++ ) {
+        for( int k =0; k < i * (v->index->mode-1); k++ )
             fprintf( stdout, " " );
-        for( int j =0; j < rfca_rowLength( print, i ); j++ ) {
-            fprintf( stdout, "%c", (char)rfca_value( print, i, j ) );
+        for( int j =0; j < rfca_buffer_rowLength( v->index, i ); j++ ) {
+            region_t* region = (region_t*)rfca_buffer_value( v->index, i, j );
+            fprintf( stdout, "%c", region->pattern->label );
             fprintf( stdout, " " );
         }
         fprintf( stdout, "\n" );
     }
 
-    rfca_free( print );
+    // Print some stats
+    fprintf( stdout, "Encoded size: %f bits, code table size: %f bits.\n", 
+            v->encodedBits, v->ctBits );
+
 }
 
 int module_encode( rfca_opts_t opts, int argc, char** argv ) {

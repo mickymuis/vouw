@@ -14,6 +14,11 @@
 typedef uint64_t rfca_node_t;
 
 typedef struct {
+    int row;
+    int col;
+} rfca_coord_t;
+
+typedef struct {
     rfca_node_t* cols;
     int size;
 } rfca_row_t;
@@ -30,6 +35,21 @@ rfca_buffer_t*
 rfca_buffer_create( int width, int mode );
 
 void
-rfca_buffer_free( rfca_buffer_t* r );
+rfca_buffer_free( rfca_buffer_t* b );
+
+rfca_node_t 
+rfca_buffer_value( rfca_buffer_t* b, int row, int col );
+
+rfca_node_t 
+rfca_buffer_valueC( rfca_buffer_t* b, rfca_coord_t c );
+
+void
+rfca_buffer_setValue( rfca_buffer_t* b, int row, int col, rfca_node_t value );
+
+void
+rfca_buffer_setValueC( rfca_buffer_t* b, rfca_coord_t c, rfca_node_t value );
+
+int 
+rfca_buffer_rowLength( rfca_buffer_t* b, int row );
 
 #endif

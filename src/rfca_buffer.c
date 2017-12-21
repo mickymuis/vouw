@@ -8,12 +8,13 @@
 #include "rfca_buffer.h"
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 rfca_buffer_t*
 rfca_buffer_create( int width, int mode ) {
     rfca_buffer_t* b = (rfca_buffer_t*)malloc( sizeof( rfca_buffer_t ) );
     
-    // We will preallocate everything, growing/shrinking is NOT support for performance reasons
+    // We will preallocate everything, growing/shrinking is NOT supported for performance reasons
     // Calculate the final number of rows and columns
     b->width = width;
     b->mode = mode;
@@ -48,3 +49,52 @@ rfca_buffer_free( rfca_buffer_t* b ) {
     free( b );
 }
 
+/*
+ * Returns the value of the at the coordinate { row,col }
+ */
+rfca_node_t 
+rfca_buffer_value( rfca_buffer_t* b, int row, int col ) {
+    assert( col < b->rows[row].size );
+    assert( row < b->rowCount );
+    return b->rows[row].cols[col];
+}
+
+/*
+ * Returns the value of the node at coordinate c
+ */
+rfca_node_t 
+rfca_buffer_valueC( rfca_buffer_t* b, rfca_coord_t c ) {
+    assert( c.col < b->rows[c.row].size );
+    assert( c.row < b->rowCount );
+    return b->rows[c.row].cols[c.col];
+}
+
+/*
+ * Changes the value on coordinate {row,col} to value
+ */
+void
+rfca_buffer_setValue( rfca_buffer_t* b, int row, int col, rfca_node_t value ) {
+    assert( col < b->rows[row].size );
+    assert( row < b->rowCount );
+    b->rows[row].cols[col] = value;
+}
+
+/*
+ * Changes the value on coordinate c to value
+ */
+void
+rfca_buffer_setValueC( rfca_buffer_t* b, rfca_coord_t c, rfca_node_t value ) {
+    assert( c.col < b->rows[c.row].size );
+    assert( c.row < b->rowCount );
+    b->rows[c.row].cols[c.col] = value;
+}
+
+/*
+ * Returns the number of columns in row `row'
+ */
+int 
+rfca_buffer_rowLength( rfca_buffer_t* b, int row ) {
+    if( row >= b->rowCount )
+        return 0;
+    return b->rows[row].size;
+}
