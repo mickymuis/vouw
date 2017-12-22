@@ -43,10 +43,10 @@ void
 rfca_generate( rfca_t* r );
 
 rfca_node_t 
-rfca_value( rfca_t* r, int row, int col );
+rfca_value( const rfca_t* r, int row, int col );
 
 rfca_node_t 
-rfca_valueC( rfca_t* r, rfca_coord_t c );
+rfca_valueC( const rfca_t* r, rfca_coord_t c );
 
 void
 rfca_setValue( rfca_t* r, int row, int col, rfca_node_t value );
@@ -55,7 +55,13 @@ void
 rfca_setValueC( rfca_t* r, rfca_coord_t c, rfca_node_t value );
 
 int 
-rfca_rowLength( rfca_t* r, int row );
+rfca_rowLength( const rfca_t* r, int row );
+
+bool
+rfca_checkBounds( const rfca_t* r, int row, int col );
+
+bool
+rfca_checkBoundsC( const rfca_t* r, rfca_coord_t c );
 
 uint64_t
 pow64( uint64_t a, uint64_t b ); // TODO move to utility

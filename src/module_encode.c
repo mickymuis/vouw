@@ -58,7 +58,9 @@ int module_encode( rfca_opts_t opts, int argc, char** argv ) {
 
     encoded_rfca_t* v = encoded_create_from( r );
     encoded_print( v );
-    
+   
+    encoded_step( v );
+
     rfca_free( r );
     encoded_free( v );
 }

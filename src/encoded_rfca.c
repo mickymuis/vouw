@@ -7,7 +7,12 @@
 
 #include "encoded_rfca.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
+
+// We use this value to temporary mask or select values in the rfca,
+// under the assumption that a base this large is unfeasible and will never occur.
+const rfca_node_t MASKED_VALUE = (1 << 31);
 
 pattern_list_t*
 standardCodeTable( int base ) {
@@ -20,7 +25,7 @@ standardCodeTable( int base ) {
         tmp = (pattern_list_t*)malloc( sizeof( pattern_list_t ) );
         INIT_LIST_HEAD( &(tmp->list) );
 
-        tmp->pattern = pattern_create_single( i );
+        tmp->pattern = pattern_createSingle( i );
         list_add_tail( &(tmp->list), &(ct->list ) );
     }
     return ct;
@@ -47,6 +52,53 @@ computeEncodedBits( encoded_rfca_t* v ) {
         bits += region->pattern->codeLength;
     }
     return bits;
+}
+
+void
+maskRegion( rfca_t* r, pattern_t* p, rfca_coord_t pivot ) {
+    printf( "Masking: " );
+    for( int i =0; i < p->size; i++ ) {
+        // For each offset, compute its location on the automaton
+        rfca_coord_t c = pattern_offset_abs( pivot, p->offsets[i] );
+
+        rfca_node_t value = rfca_valueC( r, c ) | MASKED_VALUE;
+        //if( !(value & MASKED_VALUE) ) {
+            rfca_setValueC( r, c, value );
+       // }
+        printf( "(%d,%d), ", c.row, c.col );
+    }
+    printf( "\n" );
+}
+
+void
+unmaskAll( rfca_t* r ) {
+    for( int i =0; i < r->buffer->rowCount; i++ ) {
+        for( int j =0; j < rfca_buffer_rowLength( r->buffer, i ); j++ ) {
+            rfca_node_t value = rfca_buffer_value( r->buffer, i, j );
+            if( value & MASKED_VALUE ) {
+                rfca_buffer_setValue( r->buffer, i, j, value & ~MASKED_VALUE );
+            }
+        }
+    }
+}
+
+int
+computeUsage( encoded_rfca_t* v, pattern_t* p ) {
+    rfca_t* r = v->rfca;
+    pattern_bounds_t pb = pattern_computeBounds( p );
+    int usage =0;
+    
+    for( int i =-pb.rowMin; i < r->buffer->rowCount - pb.rowMax; i++ ) {
+        for( int j =-pb.colMin; j < rfca_rowLength( r, i ) - pb.colMax; j++ ) {
+            rfca_coord_t pivot = { i,j };
+            if( pattern_isMatch( p, r, pivot, 0 ) ) {
+                maskRegion( r, p, pivot );
+                usage++;
+            }
+        }
+    }
+    unmaskAll( r );
+    return usage;
 }
 
 encoded_rfca_t*
@@ -102,7 +154,7 @@ encoded_create_from( rfca_t* r ) {
 
     // Compute the initial encoding sizes for the data and the code table
     v->stdBitsPerSingleton = -log2( 1.0 / (double)r->opts.base );
-    pattern_list_computeCodeLength( v->codeTable, v->index->nodeCount );
+    pattern_list_updateCodeLength( v->codeTable, v->index->nodeCount );
     v->ctBits = computeCodeTableBits( v );
     v->encodedBits = computeEncodedBits( v );
     return v;
@@ -118,6 +170,18 @@ encoded_free( encoded_rfca_t* v ) {
 
 int
 encoded_step( encoded_rfca_t* v ) {
+    // Test piece
+    
+    pattern_t* p_union =NULL;
+    region_t* r1 = (region_t*)rfca_buffer_value( v->index, 0, 0 );
+    region_t* r2 = (region_t*)rfca_buffer_value( v->index, 0, 1 );
 
+    pattern_offset_t p2_offset = pattern_offset( r1->pivot, r2->pivot );
+    p_union =pattern_createUnion( r1->pattern, r2->pattern, p2_offset );
+
+    int usage =computeUsage( v, p_union );
+    printf( "p_union usage: %d\n", usage );
+    
+    return 0;
 }
 

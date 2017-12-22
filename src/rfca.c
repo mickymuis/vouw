@@ -181,7 +181,7 @@ rfca_generate( rfca_t* r ) {
  * This translates internal coordinates to logical (abstracted) coordinates
  */
 rfca_coord_t
-transpose( rfca_t* r, rfca_coord_t c ) {
+transpose( const rfca_t* r, rfca_coord_t c ) {
     assert( c.row < r->buffer->rowCount );
     if( r->opts.right )
         return c; // Not mirrored
@@ -194,7 +194,7 @@ transpose( rfca_t* r, rfca_coord_t c ) {
  * Returns the value of the node at the logical coordinate c
  */
 rfca_node_t 
-rfca_value( rfca_t* r, int row, int col ) {
+rfca_value( const rfca_t* r, int row, int col ) {
     assert( row < r->buffer->rowCount );
     rfca_coord_t c = { row, col };
     return rfca_valueC( r, c );
@@ -204,7 +204,7 @@ rfca_value( rfca_t* r, int row, int col ) {
  * Returns the value of the node at the logical coordinate c
  */
 rfca_node_t 
-rfca_valueC( rfca_t* r, rfca_coord_t c ) {
+rfca_valueC( const rfca_t* r, rfca_coord_t c ) {
     c = transpose( r, c );
     assert( c.col < r->buffer->rows[c.row].size );
     assert( c.row < r->buffer->rowCount );
@@ -235,10 +235,29 @@ rfca_setValueC( rfca_t* r, rfca_coord_t c, rfca_node_t value ) {
 }
 
 /*
+ * Return true if the logical coordinate {row,col} is within bounds of r
+ */
+bool
+rfca_checkBounds( const rfca_t* r, int row, int col ) {
+    rfca_coord_t c = { row, col }; 
+    return rfca_checkBoundsC( r, c );
+}
+
+/*
+ * Return true if the logical coordinate c is within bounds of r
+ */
+bool
+rfca_checkBoundsC( const rfca_t* r, rfca_coord_t c ) {
+    if( c.row >= r->buffer->rowCount ) return false;
+    c = transpose( r, c );
+    return ( c.col < r->buffer->rows[c.row].size );
+}
+
+/*
  * Returns the number of columns in row `row'
  */
 int 
-rfca_rowLength( rfca_t* r, int row ) {
+rfca_rowLength( const rfca_t* r, int row ) {
     if( row >= r->buffer->rowCount )
         return 0;
     return r->buffer->rows[row].size;

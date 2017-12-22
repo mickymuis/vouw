@@ -53,7 +53,7 @@ rfca_buffer_free( rfca_buffer_t* b ) {
  * Returns the value of the at the coordinate { row,col }
  */
 rfca_node_t 
-rfca_buffer_value( rfca_buffer_t* b, int row, int col ) {
+rfca_buffer_value( const rfca_buffer_t* b, int row, int col ) {
     assert( col < b->rows[row].size );
     assert( row < b->rowCount );
     return b->rows[row].cols[col];
@@ -63,7 +63,7 @@ rfca_buffer_value( rfca_buffer_t* b, int row, int col ) {
  * Returns the value of the node at coordinate c
  */
 rfca_node_t 
-rfca_buffer_valueC( rfca_buffer_t* b, rfca_coord_t c ) {
+rfca_buffer_valueC( const rfca_buffer_t* b, rfca_coord_t c ) {
     assert( c.col < b->rows[c.row].size );
     assert( c.row < b->rowCount );
     return b->rows[c.row].cols[c.col];
@@ -93,8 +93,26 @@ rfca_buffer_setValueC( rfca_buffer_t* b, rfca_coord_t c, rfca_node_t value ) {
  * Returns the number of columns in row `row'
  */
 int 
-rfca_buffer_rowLength( rfca_buffer_t* b, int row ) {
+rfca_buffer_rowLength( const rfca_buffer_t* b, int row ) {
     if( row >= b->rowCount )
         return 0;
     return b->rows[row].size;
+}
+
+/*
+ * Return true if the coordinate {row,col} is within bounds of b
+ */
+bool
+rfca_buffer_checkBounds( const rfca_buffer_t* r, int row, int col ) {
+    rfca_coord_t c = { row, col }; 
+    return rfca_buffer_checkBoundsC( r, c );
+}
+
+/*
+ * Return true if the coordinate c is within bounds of b
+ */
+bool
+rfca_buffer_checkBoundsC( const rfca_buffer_t* b, rfca_coord_t c ) {
+    return ( c.row < b->rowCount 
+             && c.col < b->rows[c.row].size );
 }

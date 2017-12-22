@@ -38,10 +38,10 @@ void
 rfca_buffer_free( rfca_buffer_t* b );
 
 rfca_node_t 
-rfca_buffer_value( rfca_buffer_t* b, int row, int col );
+rfca_buffer_value( const rfca_buffer_t* b, int row, int col );
 
 rfca_node_t 
-rfca_buffer_valueC( rfca_buffer_t* b, rfca_coord_t c );
+rfca_buffer_valueC( const rfca_buffer_t* b, rfca_coord_t c );
 
 void
 rfca_buffer_setValue( rfca_buffer_t* b, int row, int col, rfca_node_t value );
@@ -50,6 +50,12 @@ void
 rfca_buffer_setValueC( rfca_buffer_t* b, rfca_coord_t c, rfca_node_t value );
 
 int 
-rfca_buffer_rowLength( rfca_buffer_t* b, int row );
+rfca_buffer_rowLength( const rfca_buffer_t* b, int row );
+
+bool
+rfca_buffer_checkBounds( const rfca_buffer_t* r, int row, int col );
+
+bool
+rfca_buffer_checkBoundsC( const rfca_buffer_t* b, rfca_coord_t c );
 
 #endif
