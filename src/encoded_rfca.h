@@ -20,6 +20,7 @@ typedef struct {
     double encodedBits;
     double ctBits;
     double stdBitsPerSingleton;
+    double stdBitsPerPivot;
 } encoded_rfca_t;
 
 encoded_rfca_t*

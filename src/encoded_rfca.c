@@ -10,9 +10,6 @@
 #include <stdio.h>
 #include <math.h>
 
-// We use this value to temporary mask or select values in the rfca,
-// under the assumption that a base this large is unfeasible and will never occur.
-const rfca_node_t MASKED_VALUE = (1 << 31);
 
 pattern_list_t*
 standardCodeTable( int base ) {
@@ -49,7 +46,7 @@ computeEncodedBits( encoded_rfca_t* v ) {
     list_for_each( pos, &(v->encoded->list) ) {
         region_list_t* tmp = list_entry( pos, region_list_t, list );
         region_t* region = tmp->region;
-        bits += region->pattern->codeLength;
+        bits += region->pattern->codeLength + v->stdBitsPerPivot;
     }
     return bits;
 }
@@ -61,25 +58,10 @@ maskRegion( rfca_t* r, pattern_t* p, rfca_coord_t pivot ) {
         // For each offset, compute its location on the automaton
         rfca_coord_t c = pattern_offset_abs( pivot, p->offsets[i] );
 
-        rfca_node_t value = rfca_valueC( r, c ) | MASKED_VALUE;
-        //if( !(value & MASKED_VALUE) ) {
-            rfca_setValueC( r, c, value );
-       // }
+        rfca_setMasked( r, c, true );
         printf( "(%d,%d), ", c.row, c.col );
     }
     printf( "\n" );
-}
-
-void
-unmaskAll( rfca_t* r ) {
-    for( int i =0; i < r->buffer->rowCount; i++ ) {
-        for( int j =0; j < rfca_buffer_rowLength( r->buffer, i ); j++ ) {
-            rfca_node_t value = rfca_buffer_value( r->buffer, i, j );
-            if( value & MASKED_VALUE ) {
-                rfca_buffer_setValue( r->buffer, i, j, value & ~MASKED_VALUE );
-            }
-        }
-    }
 }
 
 int
@@ -97,8 +79,51 @@ computeUsage( encoded_rfca_t* v, pattern_t* p ) {
             }
         }
     }
-    unmaskAll( r );
+    rfca_unmaskAll( r );
     return usage;
+}
+
+/*
+ * Calculate the gain in encoding size if patterns p1 and p2 were replaced by their union p.
+ * p is assumed to be the union of patterns p1 and p2 and to have estimated usage p_usage.
+ * The usage of p is assumed to be less or equal than the usages of p1 and p2.
+ * The return value is the difference in encoding side in bits.
+ */
+double
+computeGain( encoded_rfca_t* v, pattern_t* p1, pattern_t* p2, pattern_t* p, int p_usage ) {
+
+    const int totalNodes = v->rfca->buffer->nodeCount;
+    const double oldBits = v->ctBits + v->encodedBits; // MDL's L(M) + L(M|D)
+    double newBits = oldBits;
+
+    // Step 1. remove the size of the old patterns completely
+    newBits -= (p1->codeLength + v->stdBitsPerPivot) * p1->usage;
+    newBits -= (p2->codeLength + v->stdBitsPerPivot) * p2->usage;
+
+    // Step 2. add the bits from the old patterns that still have usage > 0
+    int p1_usage = p1->usage - p_usage;
+    if( p1_usage > 0 )
+        // Pattern p1 will remain in the code table
+        newBits += (-log2( (double)p1_usage / (double)totalNodes ) + v->stdBitsPerPivot) * p1_usage;
+    else if( p1->size > 1 ) 
+        // Pattern p1 will be removed from the code table
+        newBits -= (v->stdBitsPerSingleton * p1->size + p1->codeLength);
+
+    int p2_usage = p2->usage - p_usage;
+    if( p2_usage > 0 )
+        newBits += (-log2( (double)p2_usage / (double)totalNodes ) + v->stdBitsPerPivot) * p2_usage;
+    else if( p2->size > 1 ) 
+        // Pattern p2 will be removed from the code table
+        newBits -= (v->stdBitsPerSingleton * p2->size + p2->codeLength);
+
+    // Step 3. add the length from the union pattern p
+    double p_codeLength = -log2( (double)p_usage / (double)totalNodes );  
+    // data part
+    newBits += (p_codeLength + v->stdBitsPerPivot) * (p_usage);
+    // code table part
+    newBits += v->stdBitsPerSingleton * p->size + p_codeLength;
+    
+    return oldBits - newBits;
 }
 
 encoded_rfca_t*
@@ -136,8 +161,8 @@ encoded_create_from( rfca_t* r ) {
             INIT_LIST_HEAD( &(tmp->list) );
 
             // Create a region for every singleton on every node
-            int value = rfca_value( r, i, j );
             rfca_coord_t pivot = { i,j };
+            int value = rfca_value( r, pivot );
             tmp->region = region_create( pattern_lookup[value], pivot );
 
             // Add to the encoded dataset
@@ -145,7 +170,7 @@ encoded_create_from( rfca_t* r ) {
 
             // Also add to the indexed dataset
             // Note that we abuse the rfca_buffer's 'value' field by putting a pointer in it
-            rfca_buffer_setValueC( v->index, pivot, (uint64_t)tmp->region );
+            rfca_buffer_setValue( v->index, pivot, (uint64_t)tmp->region );
 
             // Increment the pattern's usage so we can compute its code length later
             pattern_lookup[value]->usage++;
@@ -154,6 +179,7 @@ encoded_create_from( rfca_t* r ) {
 
     // Compute the initial encoding sizes for the data and the code table
     v->stdBitsPerSingleton = -log2( 1.0 / (double)r->opts.base );
+    v->stdBitsPerPivot = -log2( 1.0 / (double)v->index->nodeCount );
     pattern_list_updateCodeLength( v->codeTable, v->index->nodeCount );
     v->ctBits = computeCodeTableBits( v );
     v->encodedBits = computeEncodedBits( v );
@@ -173,14 +199,21 @@ encoded_step( encoded_rfca_t* v ) {
     // Test piece
     
     pattern_t* p_union =NULL;
-    region_t* r1 = (region_t*)rfca_buffer_value( v->index, 0, 0 );
-    region_t* r2 = (region_t*)rfca_buffer_value( v->index, 0, 1 );
+    rfca_coord_t c = {0,0};
+    region_t* r1 = (region_t*)rfca_buffer_value( v->index, c );
+    c.col = 1;
+    region_t* r2 = (region_t*)rfca_buffer_value( v->index, c );
+
+    printf( "Code lengths: p1: %f, p2 %f\n", r1->pattern->codeLength, r2->pattern->codeLength );
+    printf( "Total nodes: %d\n", v->index->nodeCount );
 
     pattern_offset_t p2_offset = pattern_offset( r1->pivot, r2->pivot );
     p_union =pattern_createUnion( r1->pattern, r2->pattern, p2_offset );
 
     int usage =computeUsage( v, p_union );
     printf( "p_union usage: %d\n", usage );
+    double gain = computeGain( v, r1->pattern, r2->pattern, p_union, usage );
+    printf( "Compression size gain: %f bits\n", gain );
     
     return 0;
 }

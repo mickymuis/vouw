@@ -12,6 +12,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/* We use this value to temporary mask or select values in the rfca,
+ * under the assumption that a base this large is unfeasible and will never occur.
+ */
+extern const rfca_node_t RFCA_MASKED_VALUE;
+
 typedef struct {
     int base;
     int mode;
@@ -43,25 +48,25 @@ void
 rfca_generate( rfca_t* r );
 
 rfca_node_t 
-rfca_value( const rfca_t* r, int row, int col );
-
-rfca_node_t 
-rfca_valueC( const rfca_t* r, rfca_coord_t c );
+rfca_value( const rfca_t* r, rfca_coord_t c );
 
 void
-rfca_setValue( rfca_t* r, int row, int col, rfca_node_t value );
-
-void
-rfca_setValueC( rfca_t* r, rfca_coord_t c, rfca_node_t value );
+rfca_setValue( rfca_t* r, rfca_coord_t c, rfca_node_t value );
 
 int 
 rfca_rowLength( const rfca_t* r, int row );
 
 bool
-rfca_checkBounds( const rfca_t* r, int row, int col );
+rfca_checkBounds( const rfca_t* r, rfca_coord_t c );
+
+void
+rfca_setMasked( rfca_t* r, rfca_coord_t c, bool mask );
 
 bool
-rfca_checkBoundsC( const rfca_t* r, rfca_coord_t c );
+rfca_isMasked( const rfca_t* r, rfca_coord_t c );
+
+void
+rfca_unmaskAll( rfca_t* r );
 
 uint64_t
 pow64( uint64_t a, uint64_t b ); // TODO move to utility

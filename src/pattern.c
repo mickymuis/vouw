@@ -32,10 +32,10 @@ pattern_createSingle( int value ) {
     p->size =1;
     p->usage =0;
 //    p->blockSize = BLOCKSIZE;
-    p->offsets = (pattern_offset_t*)malloc( sizeof( pattern_offset_t* ) );
-    p->offsets->row =0;
-    p->offsets->col =0;
-    p->offsets->value = value;
+    p->offsets = (pattern_offset_t*)malloc( sizeof( pattern_offset_t ) );
+    p->offsets[0].row =0;
+    p->offsets[0].col =0;
+    p->offsets[0].value = value;
 
     return p;
 }
@@ -46,7 +46,7 @@ pattern_createUnion( const pattern_t* p1, const pattern_t* p2, pattern_offset_t 
     
     p->size =p1->size + p2->size;
     p->usage =0;
-    p->offsets = (pattern_offset_t*)malloc( p->size * sizeof( pattern_offset_t* ) );
+    p->offsets = (pattern_offset_t*)malloc( p->size * sizeof( pattern_offset_t ) );
     int k =0;
     for( int i=0; i < p1->size; i++, k++ )
         p->offsets[k] = p1->offsets[i];
@@ -90,11 +90,15 @@ pattern_isMatch( const pattern_t* p, const rfca_t* r, rfca_coord_t pivot, int va
         rfca_coord_t c = pattern_offset_abs( pivot, p->offsets[i] );
 
         // Check bounds
-        if( !rfca_checkBoundsC( r, c ) )
+        if( !rfca_checkBounds( r, c ) )
+            return false;
+
+        // Check for masked values
+        if( rfca_isMasked( r, c ) )
             return false;
 
         // Check match
-        if( p->offsets[i].value != ( rfca_valueC( r, c ) + variant )/* % base */)
+        if( p->offsets[i].value != ( rfca_value( r, c ) + variant ) % base )
             return false;
     }
     return true;
@@ -114,7 +118,7 @@ pattern_computeBounds( const pattern_t* p ) {
     pb.colMax = p->offsets[0].col;
 
     for( int i =1; i < p->size; i++ ) {
-        pattern_offset_t* o =&(p->offsets[0]);
+        pattern_offset_t* o =&(p->offsets[i]);
         if( o->row > pb.rowMax )
             pb.rowMax = o->row;
         else if( o->row < pb.rowMin )
@@ -146,9 +150,10 @@ pattern_list_free( pattern_list_t* list, bool free_patterns ) {
         pattern_list_t* entry = list_entry( pos, pattern_list_t, list );
         list_del( pos );
         if( free_patterns );
-            free( entry->pattern );
+            pattern_free( entry->pattern );
         free( entry );
     }
+    free( list );
 }
 
 void 

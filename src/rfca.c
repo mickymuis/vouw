@@ -17,6 +17,8 @@
 #define STEP_FOLD 2
 #define STEP_DONE 0
 
+const rfca_node_t RFCA_MASKED_VALUE = (1 << 31);
+
 /* Calculate a^b with 64-bit integers */
 uint64_t
 pow64( uint64_t a, uint64_t b ) {
@@ -182,7 +184,7 @@ rfca_generate( rfca_t* r ) {
  */
 rfca_coord_t
 transpose( const rfca_t* r, rfca_coord_t c ) {
-    assert( c.row < r->buffer->rowCount );
+    assert( c.row >= 0 && c.row < r->buffer->rowCount );
     if( r->opts.right )
         return c; // Not mirrored
     // Mirrored 
@@ -194,32 +196,10 @@ transpose( const rfca_t* r, rfca_coord_t c ) {
  * Returns the value of the node at the logical coordinate c
  */
 rfca_node_t 
-rfca_value( const rfca_t* r, int row, int col ) {
-    assert( row < r->buffer->rowCount );
-    rfca_coord_t c = { row, col };
-    return rfca_valueC( r, c );
-}
-
-/*
- * Returns the value of the node at the logical coordinate c
- */
-rfca_node_t 
-rfca_valueC( const rfca_t* r, rfca_coord_t c ) {
+rfca_value( const rfca_t* r, rfca_coord_t c ) {
     c = transpose( r, c );
-    assert( c.col < r->buffer->rows[c.row].size );
-    assert( c.row < r->buffer->rowCount );
-    return r->buffer->rows[c.row].cols[c.col];
-}
-
-/*
- * Changes the value on logical coordinate {row,col} to value
- * Note that this is not the normal operation of the automaton
- */
-void
-rfca_setValue( rfca_t* r, int row, int col, rfca_node_t value ) {
-    assert( row < r->buffer->rowCount );
-    rfca_coord_t c = { row, col };
-    rfca_setValueC( r, c, value );
+    assert( c.col >= 0 && c.col < r->buffer->rows[c.row].size );
+    return r->buffer->rows[c.row].cols[c.col] & ~RFCA_MASKED_VALUE;
 }
 
 /*
@@ -227,30 +207,46 @@ rfca_setValue( rfca_t* r, int row, int col, rfca_node_t value ) {
  * Note that this is not the normal operation of the automaton
  */
 void
-rfca_setValueC( rfca_t* r, rfca_coord_t c, rfca_node_t value ) {
+rfca_setValue( rfca_t* r, rfca_coord_t c, rfca_node_t value ) {
     c = transpose( r, c );
-    assert( c.col < r->buffer->rows[c.row].size );
-    assert( c.row < r->buffer->rowCount );
+    assert( c.col >= 0 && c.col < r->buffer->rows[c.row].size );
     r->buffer->rows[c.row].cols[c.col] = value;
-}
-
-/*
- * Return true if the logical coordinate {row,col} is within bounds of r
- */
-bool
-rfca_checkBounds( const rfca_t* r, int row, int col ) {
-    rfca_coord_t c = { row, col }; 
-    return rfca_checkBoundsC( r, c );
 }
 
 /*
  * Return true if the logical coordinate c is within bounds of r
  */
 bool
-rfca_checkBoundsC( const rfca_t* r, rfca_coord_t c ) {
-    if( c.row >= r->buffer->rowCount ) return false;
+rfca_checkBounds( const rfca_t* r, rfca_coord_t c ) {
+    if( c.row < 0 || c.row >= r->buffer->rowCount ) return false;
     c = transpose( r, c );
-    return ( c.col < r->buffer->rows[c.row].size );
+    return ( c.col >= 0 && c.col < r->buffer->rows[c.row].size );
+}
+
+void
+rfca_setMasked( rfca_t* r, rfca_coord_t c, bool mask ) {
+    c = transpose( r, c );
+    assert( c.col >= 0 && c.col < r->buffer->rows[c.row].size );
+    if( mask )
+        r->buffer->rows[c.row].cols[c.col] |= RFCA_MASKED_VALUE;
+    else
+        r->buffer->rows[c.row].cols[c.col] &= ~RFCA_MASKED_VALUE;
+}
+
+bool
+rfca_isMasked( const rfca_t* r, rfca_coord_t c ) {
+    c = transpose( r, c );
+    assert( c.col >= 0 && c.col < r->buffer->rows[c.row].size );
+    return r->buffer->rows[c.row].cols[c.col] & RFCA_MASKED_VALUE;
+}
+
+void
+rfca_unmaskAll( rfca_t* r ) {
+    for( int i =0; i < r->buffer->rowCount; i++ ) {
+        for( int j =0; j < rfca_buffer_rowLength( r->buffer, i ); j++ ) {
+            r->buffer->rows[i].cols[j] &= ~RFCA_MASKED_VALUE;
+        }
+    }
 }
 
 /*
@@ -258,7 +254,7 @@ rfca_checkBoundsC( const rfca_t* r, rfca_coord_t c ) {
  */
 int 
 rfca_rowLength( const rfca_t* r, int row ) {
-    if( row >= r->buffer->rowCount )
+    if( row < 0 || row >= r->buffer->rowCount )
         return 0;
     return r->buffer->rows[row].size;
 }

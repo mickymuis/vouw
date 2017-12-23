@@ -40,8 +40,8 @@ region_list_free( region_list_t* list, bool free_regions ) {
         region_list_t* entry = list_entry( pos, region_list_t, list );
         list_del( pos );
         if( free_regions );
-            free( entry->region );
+            region_free( entry->region );
         free( entry );
     }
-
+    free( list );
 }

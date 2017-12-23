@@ -18,7 +18,8 @@ rfca_print( rfca_t* r, bool pretty ) {
                 fprintf( stdout, " " );
         }
         for( int j =0; j < rfca_rowLength( r, i ); j++ ) {
-            fprintf( stdout, "%d", (int)rfca_value( r, i, j ) );
+            rfca_coord_t c = {i, j};
+            fprintf( stdout, "%d", (int)rfca_value( r, c ) );
             if( pretty ) fprintf( stdout, " " );
         }
         fprintf( stdout, "\n" );

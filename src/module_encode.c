@@ -39,7 +39,8 @@ encoded_print( encoded_rfca_t* v  ) {
         for( int k =0; k < i * (v->index->mode-1); k++ )
             fprintf( stdout, " " );
         for( int j =0; j < rfca_buffer_rowLength( v->index, i ); j++ ) {
-            region_t* region = (region_t*)rfca_buffer_value( v->index, i, j );
+            rfca_coord_t c = {i, j};
+            region_t* region = (region_t*)rfca_buffer_value( v->index, c );
             fprintf( stdout, "%c", region->pattern->label );
             fprintf( stdout, " " );
         }
