@@ -11,60 +11,57 @@
 #include <math.h>
 
 
-pattern_list_t*
+static pattern_t*
 standardCodeTable( int base ) {
-    pattern_list_t* ct;
-    ct = (pattern_list_t*)malloc( sizeof( pattern_list_t ) );
+    pattern_t* ct;
+    ct = (pattern_t*)malloc( sizeof( pattern_t ) );
     INIT_LIST_HEAD( &(ct->list) );
 
     for( int i =0; i < base; i++ ) {
-        pattern_list_t* tmp;
-        tmp = (pattern_list_t*)malloc( sizeof( pattern_list_t ) );
-        INIT_LIST_HEAD( &(tmp->list) );
+        pattern_t* tmp;
+        tmp = pattern_createSingle( i );
 
-        tmp->pattern = pattern_createSingle( i );
         list_add_tail( &(tmp->list), &(ct->list ) );
     }
     return ct;
 }
 
-double
+static double
 computeCodeTableBits( encoded_rfca_t* v ) {
     double bits =0.0;
     struct list_head* pos;
     list_for_each( pos, &(v->codeTable->list) ) {
-        pattern_list_t* tmp = list_entry( pos, pattern_list_t, list );
-        bits += tmp->pattern->codeLength + v->stdBitsPerSingleton * tmp->pattern->size;
+        pattern_t* tmp = list_entry( pos, pattern_t, list );
+        bits += tmp->codeLength + v->stdBitsPerSingleton * tmp->size;
     }
     return bits;
 }
 
-double
+static double
 computeEncodedBits( encoded_rfca_t* v ) {
     double bits =0.0;
     struct list_head* pos;
     list_for_each( pos, &(v->encoded->list) ) {
-        region_list_t* tmp = list_entry( pos, region_list_t, list );
-        region_t* region = tmp->region;
-        bits += region->pattern->codeLength + v->stdBitsPerPivot;
+        region_t* tmp = list_entry( pos, region_t, list );
+        bits += tmp->pattern->codeLength + v->stdBitsPerPivot;
     }
     return bits;
 }
 
-void
+static void
 maskRegion( rfca_t* r, pattern_t* p, rfca_coord_t pivot ) {
-    printf( "Masking: " );
+//    printf( "Masking: " );
     for( int i =0; i < p->size; i++ ) {
         // For each offset, compute its location on the automaton
         rfca_coord_t c = pattern_offset_abs( pivot, p->offsets[i] );
 
         rfca_setMasked( r, c, true );
-        printf( "(%d,%d), ", c.row, c.col );
+//        printf( "(%d,%d), ", c.row, c.col );
     }
-    printf( "\n" );
+//    printf( "\n" );
 }
 
-int
+static int
 computeUsage( encoded_rfca_t* v, pattern_t* p ) {
     rfca_t* r = v->rfca;
     pattern_bounds_t pb = pattern_computeBounds( p );
@@ -89,7 +86,7 @@ computeUsage( encoded_rfca_t* v, pattern_t* p ) {
  * The usage of p is assumed to be less or equal than the usages of p1 and p2.
  * The return value is the difference in encoding side in bits.
  */
-double
+static double
 computeGain( encoded_rfca_t* v, pattern_t* p1, pattern_t* p2, pattern_t* p, int p_usage ) {
 
     const int totalNodes = v->rfca->buffer->nodeCount;
@@ -126,6 +123,61 @@ computeGain( encoded_rfca_t* v, pattern_t* p1, pattern_t* p2, pattern_t* p, int 
     return oldBits - newBits;
 }
 
+static region_t*
+createRegion( encoded_rfca_t* v, pattern_t* p, rfca_coord_t pivot, bool mask ) {
+    rfca_t* r = v->rfca;
+    region_t* region = (region_t*)malloc( sizeof( region_t ) );
+    region->pivot =pivot;
+    region->pattern =p;
+
+    for( int i =0; i < p->size; i++ ) {
+        // For each offset, compute its location on the automaton
+        rfca_coord_t c = pattern_offset_abs( pivot, p->offsets[i] );
+
+        // There is probably an existing region at this location
+        region_t* ro = (region_t*)rfca_buffer_value( v->index, c );
+        if( ro ) {
+            // Substract the usage from the region's pattern
+            ro->pattern->usage--;
+            // Remove this region from the index
+            pattern_setBufferValues( ro->pattern, ro->pivot, v->index, 0 );
+            // Remove this region from the list and free its memory
+            list_del( &(ro->list) );
+            free( ro );
+        }
+
+        rfca_buffer_setValue( v->index, c, (uint64_t)region );
+
+        if( mask )
+            rfca_setMasked( r, c, true );
+    }
+
+    list_add( &(region->list), &(v->encoded->list) );
+    return region;
+}
+
+/* 
+ * Reencode the rfca encoded in v by adding pattern p to the code table
+ */
+static void
+updateEncoding( encoded_rfca_t* v, pattern_t* p ) {
+    rfca_t* r = v->rfca;
+    pattern_bounds_t pb = pattern_computeBounds( p );
+    
+    for( int i =-pb.rowMin; i < r->buffer->rowCount - pb.rowMax; i++ ) {
+        for( int j =-pb.colMin; j < rfca_rowLength( r, i ) - pb.colMax; j++ ) {
+            rfca_coord_t pivot = { i,j };
+            if( pattern_isMatch( p, r, pivot, 0 ) ) {
+                createRegion( v, p, pivot, true );
+                p->usage++;
+            }
+        }
+    }
+    rfca_unmaskAll( r );
+
+    list_add_tail( &(p->list), &(v->codeTable->list) );
+}
+
 encoded_rfca_t*
 encoded_create_from( rfca_t* r ) {
     // We're creating an encoded version of r using a standard code table
@@ -140,12 +192,12 @@ encoded_create_from( rfca_t* r ) {
     int i =0;
     struct list_head* pos;
     list_for_each( pos, &(v->codeTable->list) ) {
-        pattern_list_t* tmp = list_entry( pos, pattern_list_t, list );
-        pattern_lookup[i++] = tmp->pattern;
+        pattern_t* tmp = list_entry( pos, pattern_t, list );
+        pattern_lookup[i++] = tmp;
     }
 
     // The encoded data is represented in a linked list
-    v->encoded = (region_list_t*)malloc( sizeof( region_list_t ) );
+    v->encoded = (region_t*)malloc( sizeof( region_t ) );
     INIT_LIST_HEAD( &(v->encoded->list) );
 
     // However, we need structural information that is not encoded in this list
@@ -156,21 +208,18 @@ encoded_create_from( rfca_t* r ) {
     for( int i =0; i < r->buffer->rowCount; i++ ) {
         rfca_row_t* row = &r->buffer->rows[i];
         for( int j =0; j < row->size; j++ ) {
-            region_list_t* tmp;
-            tmp = (region_list_t*)malloc( sizeof( region_list_t ) );
-            INIT_LIST_HEAD( &(tmp->list) );
 
             // Create a region for every singleton on every node
             rfca_coord_t pivot = { i,j };
             int value = rfca_value( r, pivot );
-            tmp->region = region_create( pattern_lookup[value], pivot );
+            region_t* region = region_create( pattern_lookup[value], pivot );
 
             // Add to the encoded dataset
-            list_add_tail( &(tmp->list), &(v->encoded->list) );
+            list_add_tail( &(region->list), &(v->encoded->list) );
 
             // Also add to the indexed dataset
             // Note that we abuse the rfca_buffer's 'value' field by putting a pointer in it
-            rfca_buffer_setValue( v->index, pivot, (uint64_t)tmp->region );
+            rfca_buffer_setValue( v->index, pivot, (uint64_t)region );
 
             // Increment the pattern's usage so we can compute its code length later
             pattern_lookup[value]->usage++;
@@ -188,14 +237,64 @@ encoded_create_from( rfca_t* r ) {
 
 void
 encoded_free( encoded_rfca_t* v ) {
-    region_list_free( v->encoded, true );
-    pattern_list_free( v->codeTable, true );
+    region_list_free( v->encoded );
+    pattern_list_free( v->codeTable );
     rfca_buffer_free( v->index );
     free( v );
 }
 
 int
 encoded_step( encoded_rfca_t* v ) {
+
+    // Take the two patterns with the largest usage
+    pattern_t* p1 = list_entry( v->codeTable->list.next, pattern_t, list );
+    pattern_t* p2 = list_entry( p1->list.next, pattern_t, list );
+
+    printf( "usages | p1: %d, p2: %d\n", p1->usage, p2->usage );
+
+    double bestGain =0.0;
+    pattern_t* bestP =NULL;
+    int bestUsage =0;
+
+    struct list_head *pos1, *pos2;
+    list_for_each( pos1, &(v->encoded->list) ) {
+        region_t* r1 = list_entry( pos1, region_t, list );
+        if( r1->pattern != p1 )
+            continue;
+        list_for_each( pos2, &(v->encoded->list) ) { 
+            region_t* r2 = list_entry( pos2, region_t, list );
+            if( r2->pattern != p2 )
+                continue;
+            
+            pattern_offset_t p2_offset = pattern_offset( r1->pivot, r2->pivot );
+            pattern_t* p_union =pattern_createUnion( r1->pattern, r2->pattern, p2_offset );
+            int usage =computeUsage( v, p_union );
+            double gain = computeGain( v, r1->pattern, r2->pattern, p_union, usage );
+            if( gain > bestGain ) {
+                bestGain =gain;
+                if( bestP )
+                    pattern_free( bestP );
+                bestP = p_union;
+                bestUsage =usage;
+            }
+
+        }
+    }
+    if( bestGain == 0.0 ) {
+        printf( "encoded_step(): No compression gain.\n" );
+        return false;
+    }
+
+    printf( "encoded_step(): bestP usage: %d\n", bestUsage );
+    printf( "encoded_step(): compression size gain: %f bits\n", bestGain );
+
+    updateEncoding( v, bestP );
+
+    return true;
+}
+
+int
+encoded_test( encoded_rfca_t* v ) {
     // Test piece
     
     pattern_t* p_union =NULL;
@@ -214,6 +313,11 @@ encoded_step( encoded_rfca_t* v ) {
     printf( "p_union usage: %d\n", usage );
     double gain = computeGain( v, r1->pattern, r2->pattern, p_union, usage );
     printf( "Compression size gain: %f bits\n", gain );
+
+    updateEncoding( v, p_union );
+    pattern_list_updateCodeLength( v->codeTable, v->index->nodeCount );
+    v->ctBits = computeCodeTableBits( v );
+    v->encodedBits = computeEncodedBits( v );
     
     return 0;
 }

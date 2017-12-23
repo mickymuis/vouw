@@ -50,6 +50,16 @@ rfca_buffer_free( rfca_buffer_t* b ) {
 }
 
 /*
+ * Clears the buffer object b by writing 0 to each individual node.
+ */
+void
+rfca_buffer_clear( rfca_buffer_t* b ) {
+    for( int i =0; i < b->rowCount; i++ ) {
+        memset( b->rows[i].cols, 0, b->rows[i].size );
+    }
+}
+
+/*
  * Returns the value of the node at coordinate c
  */
 rfca_node_t 

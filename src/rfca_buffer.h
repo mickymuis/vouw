@@ -37,6 +37,9 @@ rfca_buffer_create( int width, int mode );
 void
 rfca_buffer_free( rfca_buffer_t* b );
 
+void
+rfca_buffer_clear( rfca_buffer_t* b );
+
 rfca_node_t 
 rfca_buffer_value( const rfca_buffer_t* b, rfca_coord_t c );
 

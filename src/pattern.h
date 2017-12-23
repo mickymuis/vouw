@@ -25,18 +25,13 @@ pattern_offset_t
 pattern_offset( rfca_coord_t pivot1, rfca_coord_t pivot2 );
 
 typedef struct {
+    struct list_head list;
     pattern_offset_t* offsets;
-//    size_t blockSize;
     unsigned int usage;
     unsigned int size;
     double codeLength;
     char label; // for debug printing
 } pattern_t;
-
-typedef struct {
-    pattern_t* pattern;
-    struct list_head list;
-} pattern_list_t;
 
 typedef struct {
     int rowMin;
@@ -66,16 +61,16 @@ pattern_isMatch( const pattern_t* p, const rfca_t* r, rfca_coord_t pivot, int va
 pattern_bounds_t
 pattern_computeBounds( const pattern_t* p );
 
-pattern_list_t*
-pattern_list_createHead();
+void
+pattern_setBufferValues( const pattern_t* p, rfca_coord_t pivot, rfca_buffer_t* b, rfca_node_t value );
 
 void
-pattern_list_free( pattern_list_t* list, bool free_patterns );
+pattern_list_free( pattern_t* list );
 
 void 
-pattern_list_setLabels( pattern_list_t* list );
+pattern_list_setLabels( pattern_t* list );
 
 double
-pattern_list_updateCodeLength( pattern_list_t* list, unsigned int totalNodeCount );
+pattern_list_updateCodeLength( pattern_t* list, unsigned int totalNodeCount );
 
 #endif

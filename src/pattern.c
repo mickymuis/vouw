@@ -36,6 +36,7 @@ pattern_createSingle( int value ) {
     p->offsets[0].row =0;
     p->offsets[0].col =0;
     p->offsets[0].value = value;
+    INIT_LIST_HEAD( &(p->list) );
 
     return p;
 }
@@ -55,6 +56,7 @@ pattern_createUnion( const pattern_t* p1, const pattern_t* p2, pattern_offset_t 
         p->offsets[k].row += p2_offset.row;
         p->offsets[k].col += p2_offset.col;
     }
+    INIT_LIST_HEAD( &(p->list) );
 
     return p;
 }
@@ -131,50 +133,55 @@ pattern_computeBounds( const pattern_t* p ) {
     return pb;
 }
 
+/*
+ * Use pattern p to change multiple nodes of b to value.
+ * pivot is used to compute absolute coordinates from each offset in p.
+ * The nodes at these coordinates are then set to value, regardless of any values in p
+ */
+void
+pattern_setBufferValues( const pattern_t* p, rfca_coord_t pivot, rfca_buffer_t* b, rfca_node_t value ) {
+    for( int i =0; i < p->size; i++ ) {
+        // For each offset, compute its location on the automaton
+        rfca_coord_t c = pattern_offset_abs( pivot, p->offsets[i] );
+        // Set the buffer's value at c
+        rfca_buffer_setValue( b, c, value );
+    }
+}
+
 //
 // List functions below
 //
 
-pattern_list_t*
-pattern_list_createHead() {
-    pattern_list_t* list;
-    list = (pattern_list_t*)malloc( sizeof( pattern_list_t ) );
-    INIT_LIST_HEAD( &(list->list) );
-    return list;
-}
-
 void
-pattern_list_free( pattern_list_t* list, bool free_patterns ) {
+pattern_list_free( pattern_t* list ) {
     struct list_head* tmp,* pos;
     list_for_each_safe( pos, tmp, &(list->list) ) {
-        pattern_list_t* entry = list_entry( pos, pattern_list_t, list );
+        pattern_t* pattern = list_entry( pos, pattern_t, list );
         list_del( pos );
-        if( free_patterns );
-            pattern_free( entry->pattern );
-        free( entry );
+        pattern_free( pattern );
     }
     free( list );
 }
 
 void 
-pattern_list_setLabels( pattern_list_t* list ) {
+pattern_list_setLabels( pattern_t* list ) {
     struct list_head* pos;
     char c = 'A';
     list_for_each( pos, &(list->list) ) {
-        pattern_list_t* entry = list_entry( pos, pattern_list_t, list );
-        entry->pattern->label =c;
+        pattern_t* pattern = list_entry( pos, pattern_t, list );
+        pattern->label =c;
         c++;
     }
 }
 
 double
-pattern_list_updateCodeLength( pattern_list_t* list, unsigned int totalNodeCount ) {
+pattern_list_updateCodeLength( pattern_t* list, unsigned int totalNodeCount ) {
     struct list_head* pos;
     double totalCodeLength =0.0;
     list_for_each( pos, &(list->list) ) {
-        pattern_list_t* entry = list_entry( pos, pattern_list_t, list );
-        pattern_updateCodeLength( entry->pattern, totalNodeCount );
-        totalCodeLength += entry->pattern->codeLength;
+        pattern_t* pattern = list_entry( pos, pattern_t, list );
+        pattern_updateCodeLength( pattern, totalNodeCount );
+        totalCodeLength += pattern->codeLength;
     }
     return totalCodeLength;
 }

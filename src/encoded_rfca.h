@@ -13,8 +13,8 @@
 #include "pattern.h"
 
 typedef struct {
-    region_list_t* encoded;
-    pattern_list_t* codeTable;
+    region_t* encoded;
+    pattern_t* codeTable;
     rfca_buffer_t* index;
     rfca_t *rfca;
     double encodedBits;
