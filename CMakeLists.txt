@@ -4,7 +4,7 @@ project (vouw)
 
 #set( CMAKE_VERBOSE_MAKEFILE ON )
 
-list (APPEND CMAKE_C_FLAGS "-g -std=c99")
+list (APPEND CMAKE_C_FLAGS "-g -O2 -std=c99")
 
     add_executable(vouw 
         src/main.c 

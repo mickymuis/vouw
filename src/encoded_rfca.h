@@ -21,6 +21,8 @@ typedef struct {
     double ctBits;
     double stdBitsPerSingleton;
     double stdBitsPerPivot;
+    pattern_offset_t* offsetCache;
+    uint64_t cacheIndex;
 } encoded_rfca_t;
 
 encoded_rfca_t*
@@ -28,6 +30,9 @@ encoded_create_from( rfca_t* v );
 
 void
 encoded_free( encoded_rfca_t* v );
+
+int
+encoded_test( encoded_rfca_t* v );
 
 int
 encoded_step( encoded_rfca_t* v );
