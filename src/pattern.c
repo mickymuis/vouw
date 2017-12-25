@@ -32,7 +32,7 @@ pattern_createSingle( int value ) {
     
     p->size =1;
     p->usage =0;
-//    p->blockSize = BLOCKSIZE;
+    p->codeLength = 0.0;
     p->offsets = (pattern_offset_t*)malloc( sizeof( pattern_offset_t ) );
     p->offsets[0].row =0;
     p->offsets[0].col =0;
@@ -80,6 +80,24 @@ pattern_createVariantUnion( const pattern_t* p1, int v1, const pattern_t* p2, in
         p->offsets[k].col += p2_offset.col;
         p->offsets[k].value = (p->offsets[k].value + v2) % base;
     }
+    INIT_LIST_HEAD( &(p->list) );
+
+    return p;
+}
+
+pattern_t*
+pattern_createCopy( const pattern_t* src ) {
+    pattern_t* p = (pattern_t*)malloc( sizeof( pattern_t ) );
+    
+    p->size =src->size;
+    p->usage =src->usage;
+    p->label =src->label;
+    p->codeLength =src->codeLength;
+    p->offsets = (pattern_offset_t*)malloc( p->size * sizeof( pattern_offset_t ) );
+    
+    for( int i=0; i < src->size; i++ )
+        p->offsets[i] = src->offsets[i];
+    
     INIT_LIST_HEAD( &(p->list) );
 
     return p;
@@ -229,4 +247,21 @@ pattern_cmp_usage( void* priv, struct list_head* a, struct list_head* b ) {
 void
 pattern_list_sortByUsageDesc( pattern_t* head ) {
     list_sort( NULL, &(head->list), pattern_cmp_usage );
+}
+
+static int
+pattern_cmp_size( void* priv, struct list_head* a, struct list_head* b ) {
+    pattern_t* pa = list_entry( a, pattern_t, list );
+    pattern_t* pb = list_entry( b, pattern_t, list );
+    
+    if( pa->size > pb->size )
+        return -1;
+    else if( pb->size > pa->size )
+        return 1;
+    return 0;
+}
+
+void
+pattern_list_sortBySizeDesc( pattern_t* head ) {
+    list_sort( NULL, &(head->list), pattern_cmp_size );
 }

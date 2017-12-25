@@ -15,7 +15,6 @@
 typedef struct {
     region_t* encoded;
     pattern_t* codeTable;
-    rfca_buffer_t* index;
     rfca_t *rfca;
     double encodedBits;
     double ctBits;
@@ -27,7 +26,10 @@ typedef struct {
 } encoded_rfca_t;
 
 encoded_rfca_t*
-encoded_create_from( rfca_t* v );
+encoded_createFrom( rfca_t* r );
+
+encoded_rfca_t*
+encoded_createEncodedUsing( rfca_t* r, pattern_t* codeTable );
 
 void
 encoded_free( encoded_rfca_t* v );
@@ -36,7 +38,10 @@ int
 encoded_test( encoded_rfca_t* v );
 
 int
-encoded_step( encoded_rfca_t* v );
+encoded_encode( encoded_rfca_t* v );
+
+int
+encoded_encodeStep( encoded_rfca_t* v );
 
 rfca_t*
 encoded_decode( encoded_rfca_t* v );

@@ -49,6 +49,9 @@ pattern_createUnion( const pattern_t* p1, const pattern_t* p2, pattern_offset_t 
 pattern_t*
 pattern_createVariantUnion( const pattern_t* p1, int v1, const pattern_t* p2, int v2, pattern_offset_t p2_offset, int base );
 
+pattern_t*
+pattern_createCopy( const pattern_t* src );
+
 void
 pattern_free( pattern_t* p );
 
@@ -78,5 +81,8 @@ pattern_list_updateCodeLength( pattern_t* list, unsigned int totalNodeCount );
 
 void
 pattern_list_sortByUsageDesc( pattern_t* head );
+
+void
+pattern_list_sortBySizeDesc( pattern_t* head );
 
 #endif

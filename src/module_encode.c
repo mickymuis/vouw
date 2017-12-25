@@ -65,7 +65,7 @@ int module_encode( rfca_opts_t opts, int argc, char** argv ) {
     rfca_t* r = rfca_create( opts );
     rfca_generate( r );
 
-    encoded_rfca_t* v = encoded_create_from( r );
+    encoded_rfca_t* v = encoded_createFrom( r );
     double uncompressed = v->ctBits + v->encodedBits;
     encoded_print( v );
    
@@ -73,7 +73,7 @@ int module_encode( rfca_opts_t opts, int argc, char** argv ) {
    // encoded_step( v );
     /*encoded_step( v );
     encoded_step( v );*/
-    while( encoded_step( v ) );
+    encoded_encode( v );
     encoded_print( v );
     double compressed = v->ctBits + v->encodedBits;
     printf( "Compression ratio: %f%%\n", compressed / uncompressed * 100.0 );
