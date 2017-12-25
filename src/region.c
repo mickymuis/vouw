@@ -18,6 +18,17 @@ region_create( pattern_t* pattern, rfca_coord_t pivot ) {
 }
 
 void
+region_apply( const region_t* region, rfca_t* r ) {
+    pattern_t* p =region->pattern;
+    for( int i =0; i < p->size; i++ ) {
+        // For each offset, compute its location on the automaton
+        rfca_coord_t c = pattern_offset_abs( region->pivot, p->offsets[i] );
+        // Set the buffer's value at c
+        rfca_setValue( r, c, (p->offsets[i].value + region->variant) % r->opts.base );
+    }
+}
+
+void
 region_free( region_t* r ) {
     free( r );
 }

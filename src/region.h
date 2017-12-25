@@ -23,6 +23,9 @@ region_t*
 region_create( pattern_t* pattern, rfca_coord_t pivot );
 
 void
+region_apply( const region_t* region, rfca_t* r );
+
+void
 region_free( region_t* r );
 
 void

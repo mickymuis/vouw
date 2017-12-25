@@ -10,6 +10,9 @@
 
 #include "rfca.h"
 
+void
+rfca_print( rfca_t* r, bool pretty );
+
 int module_print( rfca_opts_t opts, int argc, char** argv );
 
 int module_printTTable( rfca_opts_t opts, int argc, char** argv );

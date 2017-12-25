@@ -6,6 +6,7 @@
  */
 
 #include "module_encode.h"
+#include "module_print.h"
 #include "encoded_rfca.h"
 #include "list.h"
 #include <stdio.h>
@@ -68,14 +69,18 @@ int module_encode( rfca_opts_t opts, int argc, char** argv ) {
     double uncompressed = v->ctBits + v->encodedBits;
     encoded_print( v );
    
-    //encoded_test( v );
+   // encoded_test( v );
+   // encoded_step( v );
     /*encoded_step( v );
-    encoded_step( v );
     encoded_step( v );*/
     while( encoded_step( v ) );
     encoded_print( v );
     double compressed = v->ctBits + v->encodedBits;
     printf( "Compression ratio: %f%%\n", compressed / uncompressed * 100.0 );
+
+    rfca_t* r_prime = encoded_decode( v );
+    rfca_print( r_prime, true );
+    printf( "Correct output? %s\n", rfca_buffer_isEqual( r->buffer, r_prime->buffer ) ? "yes" : "no" );
 
     rfca_free( r );
     encoded_free( v );

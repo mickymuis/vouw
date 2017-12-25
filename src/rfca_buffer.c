@@ -97,3 +97,17 @@ rfca_buffer_checkBounds( const rfca_buffer_t* b, rfca_coord_t c ) {
     return ( c.row >= 0 && c.row < b->rowCount 
              && c.col >= 0 && c.col < b->rows[c.row].size );
 }
+
+/*
+ * Returns true if b1 and b2 are equally sized and have equal values
+ */
+bool
+rfca_buffer_isEqual( const rfca_buffer_t* b1, const rfca_buffer_t* b2 ) {
+    if(  b1->rowCount != b2->rowCount ) return false;
+    for( int i =0; i < b1->rowCount; i++ ) {
+        if( b1->rows[i].size != b2->rows[i].size ) return false;
+        if( memcmp( b1->rows[i].cols, b2->rows[i].cols, b1->rows[i].size * sizeof( rfca_node_t ) ) != 0 ) 
+            return false;
+    }
+    return true;
+}

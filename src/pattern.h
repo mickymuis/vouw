@@ -46,6 +46,9 @@ pattern_createSingle( int value );
 pattern_t*
 pattern_createUnion( const pattern_t* p1, const pattern_t* p2, pattern_offset_t p2_offset );
 
+pattern_t*
+pattern_createVariantUnion( const pattern_t* p1, int v1, const pattern_t* p2, int v2, pattern_offset_t p2_offset, int base );
+
 void
 pattern_free( pattern_t* p );
 

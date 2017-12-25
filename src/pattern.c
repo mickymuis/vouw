@@ -62,6 +62,29 @@ pattern_createUnion( const pattern_t* p1, const pattern_t* p2, pattern_offset_t 
     return p;
 }
 
+pattern_t*
+pattern_createVariantUnion( const pattern_t* p1, int v1, const pattern_t* p2, int v2, pattern_offset_t p2_offset, int base ) {
+    pattern_t* p = (pattern_t*)malloc( sizeof( pattern_t ) );
+    
+    p->size =p1->size + p2->size;
+    p->usage =0;
+    p->offsets = (pattern_offset_t*)malloc( p->size * sizeof( pattern_offset_t ) );
+    int k =0;
+    for( int i=0; i < p1->size; i++, k++ ) {
+        p->offsets[k] = p1->offsets[i];
+        p->offsets[k].value = (p->offsets[k].value + v1) % base;
+    }
+    for( int j=0; j < p2->size; j++, k++ ) {
+        p->offsets[k] = p2->offsets[j];
+        p->offsets[k].row += p2_offset.row;
+        p->offsets[k].col += p2_offset.col;
+        p->offsets[k].value = (p->offsets[k].value + v2) % base;
+    }
+    INIT_LIST_HEAD( &(p->list) );
+
+    return p;
+}
+
 void
 pattern_free( pattern_t* p ) {
     free( p->offsets );

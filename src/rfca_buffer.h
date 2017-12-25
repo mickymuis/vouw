@@ -52,4 +52,7 @@ rfca_buffer_rowLength( const rfca_buffer_t* b, int row );
 bool
 rfca_buffer_checkBounds( const rfca_buffer_t* b, rfca_coord_t c );
 
+bool
+rfca_buffer_isEqual( const rfca_buffer_t* b1, const rfca_buffer_t* b2 );
+
 #endif
