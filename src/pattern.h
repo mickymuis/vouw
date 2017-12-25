@@ -73,4 +73,7 @@ pattern_list_setLabels( pattern_t* list );
 double
 pattern_list_updateCodeLength( pattern_t* list, unsigned int totalNodeCount );
 
+void
+pattern_list_sortByUsageDesc( pattern_t* head );
+
 #endif

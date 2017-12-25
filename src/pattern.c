@@ -6,6 +6,7 @@
  */
 
 #include "pattern.h"
+#include "list_sort.h"
 #include <stdlib.h>
 #include <math.h>
 //#define BLOCKSIZE 16
@@ -184,4 +185,25 @@ pattern_list_updateCodeLength( pattern_t* list, unsigned int totalNodeCount ) {
         totalCodeLength += pattern->codeLength;
     }
     return totalCodeLength;
+}
+
+static int
+pattern_cmp_usage( void* priv, struct list_head* a, struct list_head* b ) {
+    pattern_t* pa = list_entry( a, pattern_t, list );
+    pattern_t* pb = list_entry( b, pattern_t, list );
+    if( pa->usage > pb->usage )
+        return -1;
+    else if( pb->usage > pa->usage )
+        return 1;
+    
+    if( pa->size > pb->size )
+        return -1;
+    else if( pb->size > pa->size )
+        return 1;
+    return 0;
+}
+
+void
+pattern_list_sortByUsageDesc( pattern_t* head ) {
+    list_sort( NULL, &(head->list), pattern_cmp_usage );
 }

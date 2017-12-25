@@ -363,6 +363,9 @@ int
 encoded_step( encoded_rfca_t* v ) {
     offsetcache_alloc( v );
 
+    // Sort the code table by usage, then size (descending order)
+    pattern_list_sortByUsageDesc( v->codeTable );
+
     // Take the two patterns with the largest usage
     pattern_t* p1 = list_entry( v->codeTable->list.next, pattern_t, list );
     pattern_t* p2 = list_entry( p1->list.next, pattern_t, list );
@@ -429,10 +432,10 @@ encoded_test( encoded_rfca_t* v ) {
     printf( "Total nodes: %d\n", v->index->nodeCount );
 
     pattern_offset_t p2_offset = pattern_offset( r1->pivot, r2->pivot );
-    p_union =pattern_createUnion( r1->pattern, r2->pattern, p2_offset );
+/*    p_union =pattern_createUnion( r1->pattern, r2->pattern, p2_offset );
 
     int usage =computeUsage( v, p_union );
-    printf( "p_union usage: %d\n", usage );
+    printf( "p_union usage: %d\n", usage );*/
 
     int usage2 =computeUsage2( v, r1->pattern, r2->pattern, p2_offset );
     printf( "p_union usage2: %d\n", usage2 );
