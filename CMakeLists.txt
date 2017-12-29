@@ -8,13 +8,14 @@ list (APPEND CMAKE_C_FLAGS "-g -O2 -std=c99")
 
     add_executable(vouw 
         src/main.c 
-        src/vouw.c
+        src/cli.c
+        src/module.c
         src/rfca_buffer.c
         src/rfca.c
         src/ttable.c
         src/pattern.c
         src/region.c
-        src/encoded_rfca.c
+        src/vouw.c
         src/module_print.c
         src/module_encode.c
 	src/list_sort.c )

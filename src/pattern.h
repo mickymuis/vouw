@@ -62,7 +62,7 @@ double
 pattern_computeCodeLength( const pattern_t* p, unsigned int totalNodeCount );
 
 bool
-pattern_isMatch( const pattern_t* p, const rfca_t* r, rfca_coord_t pivot, int variant );
+pattern_isMatch( const pattern_t* p, const rfca_t* r, rfca_coord_t pivot, int* variant );
 
 pattern_bounds_t
 pattern_computeBounds( const pattern_t* p );

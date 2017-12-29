@@ -128,8 +128,11 @@ pattern_computeCodeLength( const pattern_t* p, unsigned int totalNodeCount ) {
  * from r before comparison.
  */
 bool
-pattern_isMatch( const pattern_t* p, const rfca_t* r, rfca_coord_t pivot, int variant ) {
+pattern_isMatch( const pattern_t* p, const rfca_t* r, rfca_coord_t pivot, int* variant ) {
     const int base = r->opts.base;
+    bool haveVariant =false;
+    int v =0;
+
     // Iterate over all offsets in the pattern
     for( int i =0; i < p->size; i++ ) {
         // For each offset, compute its location on the automaton
@@ -142,11 +145,26 @@ pattern_isMatch( const pattern_t* p, const rfca_t* r, rfca_coord_t pivot, int va
         // Check for masked values
         if( rfca_isMasked( r, c ) )
             return false;
-
-        // Check match
-        if( p->offsets[i].value != ( rfca_value( r, c ) + variant ) % base )
-            return false;
+        
+        // The first offset is used to compute the variant
+        // If all offsets have the same variant, we have a match
+        if( !haveVariant ) {
+            // Variant from offsets[i].value to the rfca-node at c
+            v = (rfca_value( r, c ) -  p->offsets[i].value) % base;
+            v = v < 0 ? v+base : v;
+            haveVariant =true;
+        }
+        else {
+            // Check match
+            if( p->offsets[i].value != ( rfca_value( r, c ) + v ) % base )
+                return false;
+/*            v2 = (rfca_value( r, c ) -  p->offsets[i].value) % base;
+            v2 = v2 < 0 ? v2+base : v2;
+            if( v != v2 )
+                return false;*/
+        }
     }
+    *variant =v;
     return true;
 }
 

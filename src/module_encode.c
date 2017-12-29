@@ -7,12 +7,17 @@
 
 #include "module_encode.h"
 #include "module_print.h"
-#include "encoded_rfca.h"
+#include "vouw.h"
 #include "list.h"
 #include <stdio.h>
+#include <inttypes.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include "cli.h"
 
 void
-encoded_print( encoded_rfca_t* v  ) {
+vouw_print( vouw_t* v  ) {
     // Label all the patterns so we can print them
     pattern_list_setLabels( v->codeTable );
 
@@ -62,7 +67,7 @@ encoded_print( encoded_rfca_t* v  ) {
 }
 
 void
-encoded_printCodeTable( encoded_rfca_t* v ) {
+vouw_printCodeTable( vouw_t* v ) {
     printf( "Pattern\tSize\tUsage\tCode length\n" );
     printf( "---\t---\t---\t---\n" );
     struct list_head* pos;
@@ -74,28 +79,60 @@ encoded_printCodeTable( encoded_rfca_t* v ) {
 }
 
 int module_encode( rfca_opts_t opts, int argc, char** argv ) {
-    rfca_t* r = rfca_create( opts );
-    rfca_generate( r );
+    rfca_t* r1 = rfca_create( opts );
+    rfca_generate( r1 );
 
-    encoded_rfca_t* v = encoded_createFrom( r );
+    rfca_t* r2 = r1;
+    rfca_opts_t opts2 = opts;
+
+    if( argc > 0 && strcmp( argv[0], "using" ) == 0 ) {
+
+        argv++; argc--;
+        if( !cli_parseOpts( &opts2, &argv, &argc ) ) {
+            rfca_free( r1 );
+            return -1;
+        }
+        r2 = rfca_create( opts2 );
+        rfca_generate( r2 );
+    }
+    
+    fprintf( stderr, "RFCA:  %d.%d.%"PRIu64" (%d fold)\n",
+            opts2.mode, opts2.base, opts2.rule, opts2.folds );
+
+    vouw_t* v = vouw_createFrom( r2 );
     double uncompressed = v->ctBits + v->encodedBits;
-    encoded_print( v );
-   
-   // encoded_test( v );
-   // encoded_step( v );
-    /*encoded_step( v );
-    encoded_step( v );*/
-    encoded_encode( v );
-    encoded_print( v );
+    vouw_encode( v );
+    vouw_print( v );
     double compressed = v->ctBits + v->encodedBits;
     printf( "Compression ratio: %f%%\n", compressed / uncompressed * 100.0 );
-    encoded_printCodeTable( v );
+    vouw_printCodeTable( v );
 
-    rfca_t* r_prime = encoded_decode( v );
+    rfca_t* r_prime = vouw_decode( v );
     rfca_print( r_prime, true );
-    printf( "Correct output? %s\n", rfca_buffer_isEqual( r->buffer, r_prime->buffer ) ? "yes" : "no" );
+    printf( "Correct output? %s\n", rfca_buffer_isEqual( r2->buffer, r_prime->buffer ) ? "yes" : "no" );
 
-    rfca_free( r );
-    encoded_free( v );
+    rfca_free( r_prime );
+
+    if( r1 != r2 ) {
+        fprintf( stderr, "Now encoding RFCA:  %d.%d.%"PRIu64" (%d) using RFCA: %d.%d.%"PRIu64" (%d)\n",
+            opts.mode, opts.base, opts.rule, opts.folds,
+            opts2.mode, opts2.base, opts2.rule, opts2.folds);
+
+        vouw_t* v2 = vouw_createEncodedUsing( r1, v->codeTable );
+        vouw_print( v2 );
+        double compressed = v2->ctBits + v2->encodedBits;
+        printf( "Compression ratio: %f%%\n", compressed / uncompressed * 100.0 );
+        
+        rfca_t* r_prime = vouw_decode( v2 );
+        rfca_print( r_prime, true );
+        printf( "Correct output? %s\n", rfca_buffer_isEqual( r1->buffer, r_prime->buffer ) ? "yes" : "no" );
+
+        rfca_free( r2 );
+        rfca_free( r_prime );
+        vouw_free( v2 );
+    }
+    
+    rfca_free( r1 );
+    vouw_free( v );
 }
 

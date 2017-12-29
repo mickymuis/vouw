@@ -8,31 +8,43 @@
 #ifndef VOUW_H
 #define VOUW_H
 
-#include <stdio.h>
 #include "rfca.h"
-
-// We use a simple array to hold module structures
-#define MAX_MODULES 16
-
-typedef int (*module_func_t) ( rfca_opts_t, int argc, char** argv );
+#include "region.h"
+#include "pattern.h"
 
 typedef struct {
-    const char* identifier; 
-    const char* description;
-    module_func_t entrypoint;
-} vouw_module_t;
+    region_t* encoded;
+    pattern_t* codeTable;
+    pattern_t* singleton;
+    rfca_t *rfca;
+    double encodedBits;
+    double ctBits;
+    double stdBitsPerOffset;
+    double stdBitsPerPivot;
+    double stdBitsPerVariant;
+    void* offsetCache;
+    uint64_t cacheIndex;
+} vouw_t;
 
-/* Print a list of all modules along with their descriptions */
-void 
-vouw_print_modules( FILE* );
+vouw_t*
+vouw_createFrom( rfca_t* r );
 
-/* Register a module
- */
+vouw_t*
+vouw_createEncodedUsing( rfca_t* r, pattern_t* codeTable );
+
 void
-vouw_register_module( vouw_module_t* m );
+vouw_free( vouw_t* v );
 
-/* Call a module with the given identifier and arguments */
 int
-vouw_call_module( const char* ident, rfca_opts_t opts, int argc, char** argv );
+vouw_test( vouw_t* v );
+
+int
+vouw_encode( vouw_t* v );
+
+int
+vouw_encodeStep( vouw_t* v );
+
+rfca_t*
+vouw_decode( vouw_t* v );
 
 #endif
