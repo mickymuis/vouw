@@ -116,6 +116,8 @@ pattern_updateCodeLength( pattern_t* p, unsigned int totalNodeCount ) {
 
 double 
 pattern_computeCodeLength( const pattern_t* p, unsigned int totalNodeCount ) {
+    if( p->usage == 0 )
+        return 0.0;
     double probability = (double)p->usage / (double)totalNodeCount;
     return -log2( probability );
 }

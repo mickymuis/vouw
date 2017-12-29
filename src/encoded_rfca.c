@@ -10,6 +10,10 @@
 #include <stdio.h>
 #include <math.h>
 
+typedef struct {
+    int row, col;
+    int v1, v2;
+} cacheline_t;
 
 static pattern_t*
 standardCodeTable( int base ) {
@@ -71,28 +75,24 @@ computeUsage( encoded_rfca_t* v, pattern_t* p1, int v1, pattern_t* p2, int v2, p
         region_t* r1 = list_entry( pos1, region_t, list );
         if( r1->pattern != p1 )
             continue;
-        // Compute the difference between r1's variant and variant v1
-        int vv1 = (v1 - r1->variant) % base;
-        vv1 = vv1 < 0 ? vv1+base : vv1;
 
         list_for_each( pos2, &(v->encoded->list) ) { 
             region_t* r2 = list_entry( pos2, region_t, list );
             if( r2->pattern != p2 )
                 continue;
             
-            // Compute the difference between r2's variant and variant v2
-            int vv2 = (v2 - r2->variant) % base;
-            vv2 = vv2 < 0 ? vv2+base : vv2;
-            
-            /*pattern_offset_t candidate_p2_offset = pattern_offset( r1->pivot, r2->pivot );
-            if( candidate_p2_offset.row == p2_offset.row &&
-                candidate_p2_offset.col == p2_offset.col )
-                usage ++;*/
-
-            if( vv1 == vv2 &&
-                r2->pivot.row - r1->pivot.row == p2_offset.row &&
-                r2->pivot.col - r1->pivot.col == p2_offset.col )
-                usage ++;
+            if ( r2->pivot.row - r1->pivot.row == p2_offset.row &&
+                 r2->pivot.col - r1->pivot.col == p2_offset.col ) {
+                // Compute the difference between r1's variant and variant v1
+                int vv1 = (r1->variant - v1) % base;
+                vv1 = vv1 < 0 ? vv1+base : vv1;
+                
+                // Compute the difference between r2's variant and variant v2
+                int vv2 = (r2->variant - v2) % base;
+                vv2 = vv2 < 0 ? vv2+base : vv2;
+                if( vv1 == vv2 )
+                    usage ++;
+            }
         }
     }
     return usage;
@@ -197,22 +197,27 @@ mergeEncodedPatterns( encoded_rfca_t* v, pattern_t* p1, int v1, pattern_t* p2, i
         region_t* r1 = list_entry( pos1, region_t, list );
         if( r1->pattern != p1 )
             continue;
-        // Compute the difference between r1's variant and variant v1
-        int vv1 = (v1 - r1->variant) % base;
-        vv1 = vv1 < 0 ? vv1+base : vv1;
         
         list_for_each_safe( pos2, tmp2, &(v->encoded->list) ) { 
             region_t* r2 = list_entry( pos2, region_t, list );
-            if( r2->pattern != p2 || (r1->pivot.row == r2->pivot.row && r1->pivot.col == r2->pivot.col) )
+            if( (r1->pivot.row == r2->pivot.row && r1->pivot.col == r2->pivot.col) || 
+                r2->pattern != p2 )
                 continue;
             
-            // Compute the difference between r2's variant and variant v2
-            int vv2 = (v2 - r2->variant) % base;
-            vv2 = vv2 < 0 ? vv2+base : vv2;
             
-            if( vv1 == vv2 &&
-                r2->pivot.row - r1->pivot.row == p2_offset.row &&
+            if( r2->pivot.row - r1->pivot.row == p2_offset.row &&
                 r2->pivot.col - r1->pivot.col == p2_offset.col ) {
+        
+                // Compute the difference between r1's variant and variant v1
+                int vv1 = (r1->variant - v1) % base;
+                vv1 = vv1 < 0 ? vv1+base : vv1;
+                
+                // Compute the difference between r2's variant and variant v2
+                int vv2 = (r2->variant - v2) % base;
+                vv2 = vv2 < 0 ? vv2+base : vv2;
+
+                if( vv1 != vv2 )
+                    continue;
 
                 rfca_coord_t pivot = r1->pivot;
                 // Fix the list iterators if we're removing r1 and r2
@@ -240,18 +245,43 @@ mergeEncodedPatterns( encoded_rfca_t* v, pattern_t* p1, int v1, pattern_t* p2, i
         }
     }
 
-    // If p1 and/or p2 are not used and they are not singleton patterns,
-    // we remove them from the code table and free their memory.
-    if( p1->usage == 0 && p1->size > 1 ) {
-        list_del( &(p1->list ) );
-        pattern_free( p1 );
-    }
-    if( p1 != p2 && p2->usage == 0 && p2->size > 1 ) {
-        list_del( &(p2->list ) );
-        pattern_free( p2 );
+    return p_union;
+}
+
+/*
+ * Compute the gain when @p is removed from @v.
+ * If this gain is positive, actually remove @p and replace all of its regions
+ * with the singleton pattern.
+ */
+static void
+prunePattern( encoded_rfca_t* v, pattern_t* p ) {
+    // We cannot prune the singleton pattern
+    if( p->size == 1 )
+        return;
+
+    // Usage is zero, removing anyway
+    if( p->usage == 0 ) {
+        list_del( &(p->list) );
+        pattern_free( p );
     }
 
-    return p_union;
+    // The gain of removing p consists of (a) removing regions with p 
+    // (b) removing p from the code table.
+    double gain =(p->codeLength + v->stdBitsPerPivot + v->stdBitsPerVariant) * p->usage
+                +(v->stdBitsPerSingleton * p->size + p->codeLength);
+
+    // The singleton pattern can now be used to cover all regions of p
+    // This adds to the gain because it can be coded with fewer bits.
+    gain += v->singleton->codeLength * (v->singleton->usage + 1);
+    // The number of singleton regions that will be encoded
+    int d = p->usage * p->size;
+    int u = d + v->singleton->usage;
+    gain -= -log2( (double)u / (double)v->rfca->buffer->nodeCount ) * (u+1);
+    // Extra pivots and variants that are needed
+    gain -= (v->stdBitsPerPivot + v->stdBitsPerVariant) * d;
+
+    printf( "Removing %c gives a gain of %f bits.\n", p->label, gain );
+
 }
 
 encoded_rfca_t*
@@ -266,6 +296,7 @@ encoded_createFrom( rfca_t* r ) {
     INIT_LIST_HEAD( &(v->codeTable->list) );
     pattern_t* p0 = pattern_createSingle( 0 );
     list_add( &(p0->list), &(v->codeTable->list ) );
+    v->singleton = p0;
 
     // The encoded data is represented in a linked list
     v->encoded = (region_t*)malloc( sizeof( region_t ) );
@@ -317,6 +348,8 @@ encoded_createEncodedUsing( rfca_t* r, pattern_t* codeTable ) {
         pattern_t* p =pattern_createCopy( tmp );
         p->usage =0;
         list_add( &(p->list), &(v->codeTable->list) );
+        if( p->size == 1 )
+            v->singleton = p;
     }
 
     // The code table has to be sorted descending by pattern size
@@ -369,23 +402,27 @@ offsetcache_alloc( encoded_rfca_t* v ) {
     if( !v->offsetCache ) {
         int maxOffsets = v->rfca->buffer->nodeCount / 2;
         maxOffsets *= maxOffsets;
-        v->offsetCache = (pattern_offset_t*)malloc( maxOffsets * sizeof( pattern_offset_t ) );
+        v->offsetCache = malloc( maxOffsets * sizeof( cacheline_t ) );
     }
 }
 
 static bool
-offsetcache_isIn( encoded_rfca_t* v, pattern_offset_t offs ) {
-    for( uint64_t i =0; i < v->cacheIndex; i++ ) {
-        if( offs.row == v->offsetCache[i].row &&
-            offs.col == v->offsetCache[i].col )
+offsetcache_isIn( encoded_rfca_t* v, pattern_offset_t offs, int v1, int v2 ) {
+    for( int i =0; i < v->cacheIndex; i++ ) {
+        cacheline_t* c = &(((cacheline_t*)v->offsetCache)[i]);
+        if( offs.row == c->row &&
+            offs.col == c->col &&
+            v1 == c->v1 &&
+            v2 == c->v2 )
             return true;
     }
     return false;
 }
 
 static void
-offsetcache_push( encoded_rfca_t* v, pattern_offset_t offs ) {
-    v->offsetCache[v->cacheIndex++] = offs;
+offsetcache_push( encoded_rfca_t* v, pattern_offset_t offs, int v1, int v2 ) {
+    cacheline_t l = { offs.row, offs.col, v1, v2 };
+    ((cacheline_t*)v->offsetCache)[v->cacheIndex++] = l;
 }
 
 int
@@ -441,9 +478,9 @@ encoded_encodeStep( encoded_rfca_t* v ) {
                     continue;
                 
                 pattern_offset_t p2_offset = pattern_offset( r1->pivot, r2->pivot );
-                //if( offsetcache_isIn( v, p2_offset ) )
-                //    continue;
-                //offsetcache_push( v, p2_offset );
+                if( offsetcache_isIn( v, p2_offset, r1->variant, r2->variant ) )
+                    continue;
+                offsetcache_push( v, p2_offset, r1->variant, r2->variant );
 
                 int usage =computeUsage( v, p1, r1->variant, p2, r2->variant, p2_offset );
                 double gain = computeGain( v, r1->pattern, r2->pattern, usage );
@@ -472,11 +509,19 @@ encoded_encodeStep( encoded_rfca_t* v ) {
     printf( "encoded_step(): best usage: %d\n", bestUsage );
     printf( "encoded_step(): compression size gain: %f bits\n", bestGain );
 
-    //updateEncoding( v, bestP );
     mergeEncodedPatterns( v, p1, bestV1, p2, bestV2, bestP2Offset );
+
+
     pattern_list_updateCodeLength( v->codeTable, v->rfca->buffer->nodeCount );
     v->ctBits = computeCodeTableBits( v );
     v->encodedBits = computeEncodedBits( v );
+    
+    prunePattern( v, p1 );
+    if( p1 != p2 )
+        prunePattern( v, p2 );
+
+    printf( "encoded_step(): new code table size: %f, new data size: %f\n",
+            v->ctBits, v->encodedBits );
 
     return true;
 }

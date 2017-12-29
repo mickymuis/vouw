@@ -61,6 +61,18 @@ encoded_print( encoded_rfca_t* v  ) {
 
 }
 
+void
+encoded_printCodeTable( encoded_rfca_t* v ) {
+    printf( "Pattern\tSize\tUsage\tCode length\n" );
+    printf( "---\t---\t---\t---\n" );
+    struct list_head* pos;
+    list_for_each( pos, &(v->codeTable->list) ) {
+        pattern_t* p= list_entry( pos, pattern_t, list );
+        printf( "%c\t%d\t%d\t%f\n",
+                p->label, p->size, p->usage, p->codeLength );
+    } 
+}
+
 int module_encode( rfca_opts_t opts, int argc, char** argv ) {
     rfca_t* r = rfca_create( opts );
     rfca_generate( r );
@@ -77,6 +89,7 @@ int module_encode( rfca_opts_t opts, int argc, char** argv ) {
     encoded_print( v );
     double compressed = v->ctBits + v->encodedBits;
     printf( "Compression ratio: %f%%\n", compressed / uncompressed * 100.0 );
+    encoded_printCodeTable( v );
 
     rfca_t* r_prime = encoded_decode( v );
     rfca_print( r_prime, true );

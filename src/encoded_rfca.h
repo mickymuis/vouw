@@ -15,13 +15,14 @@
 typedef struct {
     region_t* encoded;
     pattern_t* codeTable;
+    pattern_t* singleton;
     rfca_t *rfca;
     double encodedBits;
     double ctBits;
     double stdBitsPerSingleton;
     double stdBitsPerPivot;
     double stdBitsPerVariant;
-    pattern_offset_t* offsetCache;
+    void* offsetCache;
     uint64_t cacheIndex;
 } encoded_rfca_t;
 

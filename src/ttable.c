@@ -30,7 +30,7 @@ tt_make( int base, int mode, uint64_t rule ) {
     int rulesize = pow64( base, mode );
     rfca_node_t* tt = malloc( sizeof( rfca_node_t ) * rulesize );
 
-    memset( tt, 0, rulesize );
+    memset( tt, 0, rulesize * sizeof( rfca_node_t ) );
 
     uint64_t decimal = rule;
     int i = rulesize - 1;
@@ -62,7 +62,7 @@ ttable_t*
 ttable_create( int base, int mode, uint64_t rule ) {
     // Prepare a buffer to store the input pattern as we increment it
     rfca_node_t A[mode];
-    memset( A, 0, mode );
+    memset( A, 0, mode * sizeof( rfca_node_t ) );
 
     // Allocate the table entries depending on the mode/base
     ttable_t* tt = malloc( sizeof( ttable_t ) );
@@ -77,7 +77,7 @@ ttable_create( int base, int mode, uint64_t rule ) {
     // Populate the input part
     for( int i =0; i < tt->size; i++ ) {
         tt->entry[i].in = malloc( sizeof( rfca_node_t ) * mode );
-        memcpy( tt->entry[i].in, A, mode );
+        memcpy( tt->entry[i].in, A, sizeof( rfca_node_t )  * mode );
         varbase_incr( A, base, mode );
     }
 
@@ -108,7 +108,7 @@ ttable_t*
 ttable_createLevel2( int base, int mode, uint64_t rule ) {
     // Prepare a buffer to store the double input pattern as we increment it
     rfca_node_t A[mode*mode];
-    memset( A, 0, mode*mode );
+    memset( A, 0, mode*mode * sizeof( rfca_node_t ) );
 
     // We use a simple array-based tt as input
     rfca_node_t* tt = tt_make( base, mode, rule );
@@ -127,7 +127,7 @@ ttable_createLevel2( int base, int mode, uint64_t rule ) {
     for( int i =0; i < tt2->size; i++ ) {
         // Allocate the input pattern and initialize with A
         rfca_node_t* in = malloc( sizeof( rfca_node_t ) * mode*mode );
-        memcpy( in, A, mode*mode );
+        memcpy( in, A, sizeof( rfca_node_t ) * mode*mode );
 
         // Allocate the output pattern and use the level 1 TT to fill it
         rfca_node_t* out = malloc( sizeof( rfca_node_t ) * mode );
