@@ -17,6 +17,7 @@ typedef struct {
     pattern_t* pattern;
     rfca_coord_t pivot;
     int variant;
+    bool masked;
 } region_t;
 
 region_t*
@@ -30,6 +31,9 @@ region_free( region_t* r );
 
 void
 region_list_free( region_t* );
+
+void 
+region_list_unmask( region_t* );
 
 #endif
 

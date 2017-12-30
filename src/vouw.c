@@ -9,11 +9,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <assert.h>
 
 typedef struct {
-    int row, col;
-    int v1, v2;
-} cacheline_t;
+    pattern_t* p1,* p2;
+    int row, col, variant;
+    unsigned int usage;
+} candidate_t;
 
 static void
 computeStdBits( vouw_t* v ) {
@@ -92,6 +94,7 @@ computeUsage( vouw_t* v, pattern_t* p1, int v1, pattern_t* p2, int v2, pattern_o
                 vv2 = vv2 < 0 ? vv2+base : vv2;
                 if( vv1 == vv2 )
                     usage ++;
+                break;
             }
         }
     }
@@ -184,10 +187,10 @@ updateEncoding( vouw_t* v, pattern_t* p ) {
 }*/
 
 static pattern_t*
-mergeEncodedPatterns( vouw_t* v, pattern_t* p1, int v1, pattern_t* p2, int v2, pattern_offset_t p2_offset ) {
+mergeEncodedPatterns( vouw_t* v, pattern_t* p1, pattern_t* p2, int variant, pattern_offset_t p2_offset ) {
     const int base = v->rfca->opts.base;
     // Create the union pattern of p1 and p2
-    pattern_t* p_union = pattern_createVariantUnion( p1, v1, p2, v2, p2_offset, base );
+    pattern_t* p_union = pattern_createVariantUnion( p1, p2, variant, p2_offset, base );
     list_add( &(p_union->list), &(p2->list) );
     //list_add( &(p_union->list), &(v->codeTable->list) );
 
@@ -209,16 +212,17 @@ mergeEncodedPatterns( vouw_t* v, pattern_t* p1, int v1, pattern_t* p2, int v2, p
             if( r2->pivot.row - r1->pivot.row == p2_offset.row &&
                 r2->pivot.col - r1->pivot.col == p2_offset.col ) {
         
-                // Compute the difference between r1's variant and variant v1
-                int vv1 = (r1->variant - v1) % base;
-                vv1 = vv1 < 0 ? vv1+base : vv1;
-                
-                // Compute the difference between r2's variant and variant v2
-                int vv2 = (r2->variant - v2) % base;
-                vv2 = vv2 < 0 ? vv2+base : vv2;
+                // Compute the difference between r1's variant and variant r2's
+                int vv = ((r2->variant + base) - r1->variant) % base;
 
-                if( vv1 != vv2 )
+                if( vv != variant )
                     continue;
+
+                // Compute the variant for the new region
+                int r1_value = (r1->pattern->offsets[0].value + r1->variant) % base; 
+                int vn = ((r1_value + base) - p1->offsets[0].value) % base;
+                assert( r1->pattern->offsets[0].col == 0 && r1->pattern->offsets[0].row == 0 &&
+                        p2->offsets[0].col == 0 && p1->offsets[0].row == 0 );
 
                 rfca_coord_t pivot = r1->pivot;
                 // Fix the list iterators if we're removing r1 and r2
@@ -237,7 +241,7 @@ mergeEncodedPatterns( vouw_t* v, pattern_t* p1, int v1, pattern_t* p2, int v2, p
                 region_t* region = (region_t*)malloc( sizeof( region_t ) );
                 region->pivot =pivot;
                 region->pattern =p_union;
-                region->variant =vv1;
+                region->variant =vn;
 
                 list_add_tail( &(region->list), &(v->encoded->list) );
 
@@ -282,7 +286,7 @@ prunePattern( vouw_t* v, pattern_t* p ) {
     // Extra pivots and variants that are needed
     gain -= (v->stdBitsPerPivot + v->stdBitsPerVariant) * d;
 
-    printf( "Removing %c gives a gain of %f bits.\n", p->label, gain );
+    printf( "-- Optional removal of %c gives a gain of %f bits.\n", p->label, gain );
 
 }
 
@@ -290,7 +294,7 @@ vouw_t*
 vouw_createFrom( rfca_t* r ) {
     // We're creating an encoded version of r using a standard code table
     vouw_t* v = (vouw_t*)malloc( sizeof( vouw_t ) );
-    v->offsetCache = NULL;
+    v->buffer = NULL;
     v->rfca =r;
 
     // The initial code table contains only one pattern
@@ -333,7 +337,7 @@ vouw_t*
 vouw_createEncodedUsing( rfca_t* r, pattern_t* codeTable ) {
     // We're creating an encoded version of r using a given code table
     vouw_t* v = (vouw_t*)malloc( sizeof( vouw_t ) );
-    v->offsetCache = NULL;
+    v->buffer = NULL;
     v->rfca =r;
 
     // Copy the code table to the newly created object
@@ -386,38 +390,51 @@ void
 vouw_free( vouw_t* v ) {
     region_list_free( v->encoded );
     pattern_list_free( v->codeTable );
-    if( v->offsetCache )
-        free( v->offsetCache );
+    if( v->buffer )
+        free( v->buffer );
     free( v );
 }
 
 static void
-offsetcache_alloc( vouw_t* v ) {
-    v->cacheIndex =0;
-    if( !v->offsetCache ) {
+candidates_alloc( vouw_t* v ) {
+    v->bufferIndex =0;
+    if( !v->buffer ) {
         int maxOffsets = v->rfca->buffer->nodeCount;
         maxOffsets *= maxOffsets;
-        v->offsetCache = malloc( maxOffsets * sizeof( cacheline_t ) );
+        v->buffer = malloc( maxOffsets * sizeof( candidate_t ) );
     }
-}
-
-static bool
-offsetcache_isIn( vouw_t* v, pattern_offset_t offs, int v1, int v2 ) {
-    for( int i =0; i < v->cacheIndex; i++ ) {
-        cacheline_t* c = &(((cacheline_t*)v->offsetCache)[i]);
-        if( offs.row == c->row &&
-            offs.col == c->col &&
-            v1 == c->v1 &&
-            v2 == c->v2 )
-            return true;
-    }
-    return false;
 }
 
 static void
-offsetcache_push( vouw_t* v, pattern_offset_t offs, int v1, int v2 ) {
-    cacheline_t l = { offs.row, offs.col, v1, v2 };
-    ((cacheline_t*)v->offsetCache)[v->cacheIndex++] = l;
+candidates_add( vouw_t* v, pattern_t* p1, pattern_t* p2, pattern_offset_t offset, int variant ) {
+    for( int i =0; i < v->bufferIndex; i++ ) {
+        candidate_t* c = &(((candidate_t*)v->buffer)[i]);
+        if( offset.row == c->row &&
+            offset.col == c->col &&
+            variant == c->variant &&
+            p1 == c->p1 &&
+            p2 == c->p2 ) {
+            c->usage++;
+            return;
+        }   
+    }
+    candidate_t* c = &(((candidate_t*)v->buffer)[v->bufferIndex++]);
+    c->p1 = p1;
+    c->p2 = p2;
+    c->variant = variant;
+    c->row = offset.row;
+    c->col = offset.col;
+    c->usage =1;
+}
+
+static candidate_t
+candidates_index( vouw_t* v, int i ) {
+    return ((candidate_t*)v->buffer)[i];
+}
+
+static int
+candidates_count( vouw_t* v ) {
+    return v->bufferIndex;
 }
 
 int
@@ -433,60 +450,57 @@ vouw_encodeStep( vouw_t* v ) {
     // Label all the patterns so we can print them
     pattern_list_setLabels( v->codeTable ); // ONLY FOR DEBUG
     
-    offsetcache_alloc( v );
+    candidates_alloc( v );
 
     // Sort the code table by usage, then size (descending order)
     pattern_list_sortByUsageDesc( v->codeTable );
 
-    // Take the two patterns with the largest usage
-    pattern_t* p1 = list_entry( v->codeTable->list.next, pattern_t, list );
-    pattern_t* p2 = list_entry( p1->list.next, pattern_t, list );
-
-    static const int n_permutations =3;
-    pattern_t* const permutations[3][2] = {
-        { p1, p1 },
-        { p1, p2 },
-        { p2, p2 }
-    };
+    pattern_t* p1 = NULL;
+    pattern_t* p2 = NULL;
+    pattern_t* bestP1 =NULL,* bestP2 = NULL;
+    int base =v->rfca->opts.base;
 
     double bestGain =0.0;
     pattern_offset_t bestP2Offset;
-    int bestUsage =0, bestV1 =0, bestV2 =0, bestPerm =0;
+    int bestUsage =0, bestVar =0;
 
-    for( int i =0; i < n_permutations; i++ ) {
-        // Prepare the patterns p1 and p2 from each permutation
-        p1 = permutations[i][0];
-        if( !p1 ) continue;
-        p2 = permutations[i][1];
-        if( !p2 ) continue;
+    struct list_head *pos1, *pos2;
+    list_for_each( pos1, &(v->encoded->list) ) {
+        region_t* r1 = list_entry( pos1, region_t, list );
+        if( r1->masked )
+            continue;
+        p1 = r1->pattern;
+        // Make sure we don't visit these regions again
+        r1->masked =true;
+        list_for_each( pos2, &(v->encoded->list) ) { 
+            region_t* r2 = list_entry( pos2, region_t, list );
 
-        struct list_head *pos1, *pos2;
-        list_for_each( pos1, &(v->encoded->list) ) {
-            region_t* r1 = list_entry( pos1, region_t, list );
-            if( r1->pattern != p1 )
+            if( r2->masked )
+            //if( (r1->pivot.row == r2->pivot.row && r1->pivot.col == r2->pivot.col) )
                 continue;
-            list_for_each( pos2, &(v->encoded->list) ) { 
-                region_t* r2 = list_entry( pos2, region_t, list );
-                if( r2->pattern != p2 || (r1->pivot.row == r2->pivot.row && r1->pivot.col == r2->pivot.col) )
-                    continue;
-                
-                pattern_offset_t p2_offset = pattern_offset( r1->pivot, r2->pivot );
-                if( offsetcache_isIn( v, p2_offset, r1->variant, r2->variant ) )
-                    continue;
-                offsetcache_push( v, p2_offset, r1->variant, r2->variant );
 
-                int usage =computeUsage( v, p1, r1->variant, p2, r2->variant, p2_offset );
-                double gain = computeGain( v, r1->pattern, r2->pattern, usage );
-                if( gain > bestGain ) {
-                    bestGain =gain;
-                    bestP2Offset= p2_offset;
-                    bestUsage =usage;
-                    bestPerm = i;
-                    bestV1 = r1->variant;
-                    bestV2 = r2->variant;
-                }
+            p2 =r2->pattern;
+            pattern_offset_t p2_offset = pattern_offset( r1->pivot, r2->pivot );
+            int variant = ((r2->variant + base) - r1->variant) % base;
 
-            }
+            candidates_add( v, p1, p2, p2_offset, variant );
+
+        }
+    }
+    region_list_unmask( v->encoded );
+    printf( "encoded_step(): number of candidates: %d\n", candidates_count( v ) );
+    for( int i =0; i < candidates_count( v ); i++ ) {
+        candidate_t c =candidates_index( v, i );
+
+        double gain = computeGain( v, c.p1, c.p2, c.usage );
+        if( gain > bestGain ) {
+            bestGain =gain;
+            bestP2Offset.col= c.col;
+            bestP2Offset.row= c.row;
+            bestUsage =c.usage;
+            bestP1 = c.p1;
+            bestP2 = c.p2;
+            bestVar = c.variant;
         }
     }
     if( bestGain == 0.0 ) {
@@ -494,21 +508,18 @@ vouw_encodeStep( vouw_t* v ) {
         return false;
     }
 
-    p1 = permutations[bestPerm][0];
-    p2 = permutations[bestPerm][1];
-
-    printf( "vouw_step(): merging: %c+%d and %c+%d with offset (%d,%d)\n", 
-            p1->label, bestV1, p2->label, bestV2, bestP2Offset.row, bestP2Offset.col );
+    printf( "vouw_step(): merging: %c and %c +%d with offset (%d,%d)\n", 
+            bestP1->label, bestP2->label, bestVar, bestP2Offset.row, bestP2Offset.col );
     printf( "vouw_step(): best usage: %d\n", bestUsage );
     printf( "vouw_step(): compression size gain: %f bits\n", bestGain );
 
-    mergeEncodedPatterns( v, p1, bestV1, p2, bestV2, bestP2Offset );
+    mergeEncodedPatterns( v, bestP1, bestP2, bestVar, bestP2Offset );
 
     updateEncodedLength( v );
     
-    prunePattern( v, p1 );
+    prunePattern( v, bestP1 );
     if( p1 != p2 )
-        prunePattern( v, p2 );
+        prunePattern( v, bestP2 );
 
     printf( "vouw_step(): new code table size: %f, new data size: %f\n",
             v->ctBits, v->encodedBits );
@@ -516,7 +527,7 @@ vouw_encodeStep( vouw_t* v ) {
     return true;
 }
 
-int
+/*int
 vouw_test( vouw_t* v ) {
     // Test piece
     
@@ -534,8 +545,6 @@ vouw_test( vouw_t* v ) {
     int usage =computeUsage( v, r1->pattern, r1->variant, r2->pattern, r2->variant, p2_offset );
     printf( "p_union usage: %d\n", usage );
 
-  /*  int usage2 =computeUsage2( v, r1->pattern, r2->pattern, p2_offset );
-    printf( "p_union usage2: %d\n", usage2 );*/
 
     double gain = computeGain( v, r1->pattern, r2->pattern, usage );
     printf( "Compression size gain: %f bits\n", gain );
@@ -547,7 +556,7 @@ vouw_test( vouw_t* v ) {
     v->encodedBits = computeEncodedBits( v );
 
     return 0;
-}
+}*/
 
 rfca_t*
 vouw_decode( vouw_t* v ) {

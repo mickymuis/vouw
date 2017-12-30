@@ -13,6 +13,7 @@ region_create( pattern_t* pattern, rfca_coord_t pivot ) {
     region_t* r = (region_t*)malloc( sizeof( region_t ) );
     r->pivot =pivot;
     r->pattern = pattern;
+    r->masked = false;
     INIT_LIST_HEAD( &(r->list ) );
     return r;
 }
@@ -43,4 +44,13 @@ region_list_free( region_t* r ) {
         region_free( entry );
     }
     free( r );
+}
+
+void 
+region_list_unmask( region_t* r ) {
+    struct list_head* pos;
+    list_for_each( pos, &(r->list) ) {
+        region_t* entry = list_entry( pos, region_t, list );
+        entry->masked =false;
+    }
 }

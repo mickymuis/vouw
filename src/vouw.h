@@ -22,8 +22,8 @@ typedef struct {
     double stdBitsPerOffset;
     double stdBitsPerPivot;
     double stdBitsPerVariant;
-    void* offsetCache;
-    uint64_t cacheIndex;
+    void* buffer;
+    uint64_t bufferIndex;
 } vouw_t;
 
 vouw_t*
