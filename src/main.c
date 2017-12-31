@@ -18,6 +18,7 @@
 // Modules
 #include "module_print.h"
 #include "module_encode.h"
+#include "module_batch.h"
 
 int
 main( int _argc, char** _argv ) {
@@ -50,11 +51,16 @@ main( int _argc, char** _argv ) {
         "Print the level 2 transition table for a given configuration.",
         &module_printTTable2 };
     module_register( &moduleTTable2 );
-    module_t moduleEncode = {
+    module_t moduleencode = {
         "encode",
-        "Place holder.",
+        "encode the given automaton using the vouw algorithm. optionally, specify another automaton with `using' to cross-encode.",
         &module_encode };
-    module_register( &moduleEncode );
+    module_register( &moduleencode );
+    module_t moduleencodeall = {
+        "encode-all",
+        "Encode the entire specified rulespace using VOUW and print the compresion ratio for each rule.",
+        &module_encodeAll };
+    module_register( &moduleencodeall );
 
     // The module is always the first argument
     if( argc == 1 ) {

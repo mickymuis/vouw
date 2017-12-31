@@ -18,6 +18,7 @@ list (APPEND CMAKE_C_FLAGS "-g -O2 -std=c99")
         src/vouw.c
         src/module_print.c
         src/module_encode.c
+        src/module_batch.c
 	src/list_sort.c )
 
 target_link_libraries (vouw "-lm" )

@@ -8,6 +8,8 @@
 #ifndef VOUW_H
 #define VOUW_H
 
+//#define VOUW_DEBUG_PRINT
+
 #include "rfca.h"
 #include "region.h"
 #include "pattern.h"

@@ -290,7 +290,9 @@ prunePattern( vouw_t* v, pattern_t* p ) {
     // Extra pivots and variants that are needed
     gain -= (v->stdBitsPerPivot + v->stdBitsPerVariant) * d;
 
-    printf( "-- Optional removal of %c gives a gain of %f bits.\n", p->label, gain );
+#ifdef VOUW_DEBUG_PRINT
+    fprintf( stderr, "-- Optional removal of %c gives a gain of %f bits.\n", p->label, gain );
+#endif
 
 }
 
@@ -497,7 +499,9 @@ vouw_encodeStep( vouw_t* v ) {
         }
     }
     region_list_unmask( v->encoded );
-    printf( "encoded_step(): number of candidates: %d\n", candidates_count( v ) );
+#ifdef VOUW_DEBUG_PRINT
+    fprintf( stderr, "encoded_step(): number of candidates: %d\n", candidates_count( v ) );
+#endif
     for( int i =0; i < candidates_count( v ); i++ ) {
         candidate_t c =candidates_index( v, i );
 
@@ -513,14 +517,18 @@ vouw_encodeStep( vouw_t* v ) {
         }
     }
     if( bestGain == 0.0 ) {
+#ifdef VOUW_DEBUG_PRINT
         printf( "vouw_step(): No compression gain.\n" );
+#endif
         return false;
     }
 
-    printf( "vouw_step(): merging: %c and %c +%d with offset (%d,%d)\n", 
+#ifdef VOUW_DEBUG_PRINT
+    fprintf( stderr, "vouw_step(): merging: %c and %c +%d with offset (%d,%d)\n", 
             bestP1->label, bestP2->label, bestVar, bestP2Offset.row, bestP2Offset.col );
-    printf( "vouw_step(): best usage: %d\n", bestUsage );
-    printf( "vouw_step(): compression size gain: %f bits\n", bestGain );
+    fprintf( stderr,"vouw_step(): best usage: %d\n", bestUsage );
+    fprintf( stderr,"vouw_step(): compression size gain: %f bits\n", bestGain );
+#endif
 
     mergeEncodedPatterns( v, bestP1, bestP2, bestVar, bestP2Offset );
 
@@ -535,9 +543,6 @@ vouw_encodeStep( vouw_t* v ) {
         pattern_t* tmp = list_entry( pos, pattern_t, list );
         prunePattern( v, tmp );
     }*/
-
-    printf( "vouw_step(): new code table size: %f, new data size: %f\n",
-            v->ctBits, v->encodedBits );
 
     return true;
 }
