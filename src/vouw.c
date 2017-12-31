@@ -191,8 +191,8 @@ mergeEncodedPatterns( vouw_t* v, pattern_t* p1, pattern_t* p2, int variant, patt
     const int base = v->rfca->opts.base;
     // Create the union pattern of p1 and p2
     pattern_t* p_union = pattern_createVariantUnion( p1, p2, variant, p2_offset, base );
-    list_add( &(p_union->list), &(p2->list) );
-    //list_add( &(p_union->list), &(v->codeTable->list) );
+    //list_add( &(p_union->list), &(p2->list) );
+    list_add( &(p_union->list), &(v->codeTable->list) );
 
     // Iterate over every possible combination of p1 and p2
     // Complexity is approx. (N/2)^2 in the list of regions. I'm not proud of it.
@@ -230,6 +230,15 @@ mergeEncodedPatterns( vouw_t* v, pattern_t* p1, pattern_t* p2, int variant, patt
                     tmp1 = r2->list.next;
                 if( tmp2 == &r1->list )
                     tmp2 = r1->list.next;
+                // Create a new region at this pivot containing p_union
+                region_t* region = (region_t*)malloc( sizeof( region_t ) );
+                region->pivot =pivot;
+                region->pattern =p_union;
+                region->variant =vn;
+                
+                //list_add( &(region->list), &(v->encoded->list) );
+                list_add( &(region->list), &(r1->list) );
+                
                 // Remove and free both r1 and r2
                 r1->pattern->usage--;
                 list_del( &(r1->list) );
@@ -237,13 +246,7 @@ mergeEncodedPatterns( vouw_t* v, pattern_t* p1, pattern_t* p2, int variant, patt
                 r2->pattern->usage--;
                 list_del( &(r2->list) );
                 region_free( r2 );
-                // Create a new region at this pivot containing p_union
-                region_t* region = (region_t*)malloc( sizeof( region_t ) );
-                region->pivot =pivot;
-                region->pattern =p_union;
-                region->variant =vn;
 
-                list_add_tail( &(region->list), &(v->encoded->list) );
 
                 p_union->usage ++;
                 break;
@@ -269,6 +272,7 @@ prunePattern( vouw_t* v, pattern_t* p ) {
     if( p->usage == 0 ) {
         list_del( &(p->list) );
         pattern_free( p );
+        return;
     }
 
     // The gain of removing p consists of (a) removing regions with p 
@@ -300,12 +304,15 @@ vouw_createFrom( rfca_t* r ) {
     // The initial code table contains only one pattern
     v->codeTable = (pattern_t*)malloc( sizeof( pattern_t ) );
     INIT_LIST_HEAD( &(v->codeTable->list) );
+    v->codeTable->size =0;
     pattern_t* p0 = pattern_createSingle( 0 );
     list_add( &(p0->list), &(v->codeTable->list ) );
     v->singleton = p0;
 
     // The encoded data is represented in a linked list
     v->encoded = (region_t*)malloc( sizeof( region_t ) );
+    v->encoded->pattern =NULL;
+    v->encoded->masked =false;
     INIT_LIST_HEAD( &(v->encoded->list) );
 
     // Now we encode each node in the automaton using the standard code table
@@ -320,7 +327,7 @@ vouw_createFrom( rfca_t* r ) {
             region->variant = value;
 
             // Add to the encoded dataset
-            list_add_tail( &(region->list), &(v->encoded->list) );
+            list_add( &(region->list), &(v->encoded->list) );
 
             // Increment the pattern's usage so we can compute its code length later
             p0->usage++;
@@ -348,7 +355,7 @@ vouw_createEncodedUsing( rfca_t* r, pattern_t* codeTable ) {
     list_for_each( pos, &(codeTable->list) ) {
         pattern_t* tmp = list_entry( pos, pattern_t, list );
         pattern_t* p =pattern_createCopy( tmp );
-      //  p->usage =0;
+        p->usage =0;
         list_add( &(p->list), &(v->codeTable->list) );
         if( p->size == 1 )
             v->singleton = p;
@@ -366,13 +373,15 @@ vouw_createEncodedUsing( rfca_t* r, pattern_t* codeTable ) {
         pattern_t* p = list_entry( pos, pattern_t, list );
         pattern_bounds_t pb = pattern_computeBounds( p );
         
-        for( int i =-pb.rowMin; i < r->buffer->rowCount - pb.rowMax; i++ ) {
-            for( int j =-pb.colMin; j < rfca_rowLength( r, i ) - pb.colMax; j++ ) {
+        //for( int i =0/*-pb.rowMin*/; i < r->buffer->rowCount /*- pb.rowMax*/; i++ ) {
+         //   for( int j =0/*-pb.colMin*/; j < rfca_rowLength( r, i ) /*- pb.colMax*/; j++ ) {
+        for( int i = r->buffer->rowCount -1; i >= 0; i-- ) {
+            for( int j = rfca_rowLength( r, i ) -1; j>= 0; j-- ) {
                 rfca_coord_t pivot = { i,j };
                 int variant =0;
                 if( pattern_isMatch( p, r, pivot, &variant ) ) {
                     createRegion( v, p, pivot, variant, true );
-    //                p->usage++;
+                    p->usage++;
                 }
             }
         }
@@ -493,7 +502,7 @@ vouw_encodeStep( vouw_t* v ) {
         candidate_t c =candidates_index( v, i );
 
         double gain = computeGain( v, c.p1, c.p2, c.usage );
-        if( gain > bestGain ) {
+        if( gain >= bestGain ) {
             bestGain =gain;
             bestP2Offset.col= c.col;
             bestP2Offset.row= c.row;
@@ -518,8 +527,14 @@ vouw_encodeStep( vouw_t* v ) {
     updateEncodedLength( v );
     
     prunePattern( v, bestP1 );
-    if( p1 != p2 )
+    if( bestP1 != bestP2 )
         prunePattern( v, bestP2 );
+    
+/*    struct list_head* pos;
+    list_for_each( pos, &(v->codeTable->list) ) {
+        pattern_t* tmp = list_entry( pos, pattern_t, list );
+        prunePattern( v, tmp );
+    }*/
 
     printf( "vouw_step(): new code table size: %f, new data size: %f\n",
             v->ctBits, v->encodedBits );

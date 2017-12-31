@@ -100,7 +100,7 @@ cli_parseOpts( rfca_opts_t* opts, char** argv_ptr[0], int* argc ) {
         memset( opts->input, 0, opts->inputSize );
         for( int i =0; i < inputLen; i++ ) {
             uint8_t v = param_input[i] - '0';
-            if( !isdigit( param_input[i] ) || v >= opts->mode ) {
+            if( !isdigit( param_input[i] ) || v >= opts->base ) {
                 fprintf( stderr, "Error: Parameter `input' Contains disallowed character (%c)\n", param_input[i] );
                 return false;
             }

@@ -33,11 +33,18 @@ tt_make( int base, int mode, uint64_t rule ) {
     memset( tt, 0, rulesize * sizeof( rfca_node_t ) );
 
     uint64_t decimal = rule;
-    int i = rulesize - 1;
+    // Edit to be congruent with Wolfram Code
+/*    int i = rulesize - 1;
     while( i >= 0 && decimal > 0 ) {
         tt[i] = decimal % base;
         decimal = decimal / base;
         i--;
+    }*/
+    int i = 0;
+    while( i < rulesize && decimal > 0 ) {
+        tt[i] = decimal % base;
+        decimal = decimal / base;
+        i++;
     }
     return tt;
 }
@@ -83,12 +90,12 @@ ttable_create( int base, int mode, uint64_t rule ) {
 
     // Populate the output part
     uint64_t decimal = rule;
-    int i = tt->size - 1;
-    while( i >= 0 && decimal >= 0 ) {
+    int i = 0;
+    while( i < tt->size && decimal >= 0 ) {
         tt->entry[i].out = malloc( sizeof( rfca_node_t ) );
         tt->entry[i].out[0] = decimal % base;
         decimal = decimal / base;
-        i--;
+        i++;
     }
     return tt;
 
