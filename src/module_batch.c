@@ -42,8 +42,16 @@ int module_encodeAll( rfca_opts_t opts, int argc, char** argv ) {
 
         rfca_free( r2 );
         fprintf( stderr, "Now encoding RFCA class: %d.%d for %"PRIu64" rules, using RFCA: %d.%d.%"PRIu64"\n",
-            opts.mode, opts.base, opts.rule,
+            opts.mode, opts.base, rulespace,
             opts2.mode, opts2.base, opts2.rule);
+        if( opts2.rule == 0 ) {
+            printf( "%"PRIu64"", rulespace );
+            for( uint64_t i=0; i < rulespace; i++ )
+                printf( "\t%"PRIu64"", i );
+            printf( "\n", opts2.rule );
+        }
+        printf( "%d", opts2.rule );
+
     } 
     else
         fprintf( stderr, "Now encoding RFCA class: %d.%d for %"PRIu64" rules\n",
@@ -54,13 +62,13 @@ int module_encodeAll( rfca_opts_t opts, int argc, char** argv ) {
         rfca_t* r =rfca_create( opts );
         rfca_generate( r );
 
-        fprintf( stderr, "Encoding %"PRIu64" (%1.f%%)...", i, (double)i/(double)rulespace * 100.0 );
+        fprintf( stderr, "Encoding %"PRIu64" (%.1f%%)...", i, (double)i/(double)rulespace * 100.0 );
 
         vouw_t* v =vouw_createFrom( r );
         double uncompressed = v->ctBits + v->encodedBits;
         vouw_encode( v );
         double compressed = v->ctBits + v->encodedBits;
-        double compressed_using =0.0;
+        double compressed_using =compressed;
         
         if( using ) {
             vouw_free( v );
@@ -69,14 +77,14 @@ int module_encodeAll( rfca_opts_t opts, int argc, char** argv ) {
         }
         
         fprintf( stderr, "done.\n" );
-        printf( "%"PRIu64" %f%%", i, compressed_using / uncompressed * 100.0 );
         if( using )
-            printf( " %f%%\n", (compressed_using - compressed) / compressed * 100.0 );
+            printf( "\t%f", (compressed_using - compressed) / compressed /** 100.0*/ );
         else
-            printf( "\n" );
+            printf( "%"PRIu64" %f%%\n", i, compressed_using / uncompressed * 100.0 );
         
 
         vouw_free( v );
         rfca_free( r );
     }
+    printf( "\n" );
 }

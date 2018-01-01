@@ -14,7 +14,7 @@
 #define BASE_DEFAULT 2
 #define BASE_MAX 5
 #define MODE_DEFAULT 2
-#define MODE_MAX 2
+#define MODE_MAX 5
 #define FOLDS_DEFAULT 0
 #define FOLDS_MAX 10000
 #define INPUT_MAX 500

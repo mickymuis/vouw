@@ -464,7 +464,7 @@ vouw_encodeStep( vouw_t* v ) {
     candidates_alloc( v );
 
     // Sort the code table by usage, then size (descending order)
-    pattern_list_sortByUsageDesc( v->codeTable );
+    //pattern_list_sortByUsageDesc( v->codeTable );
 
     pattern_t* p1 = NULL;
     pattern_t* p2 = NULL;

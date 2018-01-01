@@ -118,17 +118,21 @@ next( rfca_t* r, rfca_coord_t c ) {
             c.col++;
         }
     }
-    else if( c.col == 0 ) {
+    else if( c.col < r->opts.mode-1 ) {
         // Pivot -> fold
         // { col: inputSize + (row - lastInputRow), row: 0 }
-        c.col = r->opts.inputSize + (c.row - lastInputRow);
+        // c.col = r->opts.inputSize + (c.row - lastInputRow);
+        // { col: inputSize + (row * (mode-1) - lastInputRow), row: 0 }
+        c.col = r->opts.inputSize + (c.row - lastInputRow) * (r->opts.mode-1) + c.col; 
+/*            + r->opts.inputSize%(r->opts.mode-1);*/
+        // TODO FIX FOR M > 2
         c.row = 0;
 
     } 
     else {
         // Next row in when folding
         // { col: col - 1, row: row + 1 }
-        c.col--;
+        c.col -= (r->opts.mode-1);
         c.row++;
     }
     return c;
