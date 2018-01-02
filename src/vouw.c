@@ -56,15 +56,11 @@ updateEncodedLength( vouw_t* v ) {
 
 static void
 maskRegion( rfca_t* r, pattern_t* p, rfca_coord_t pivot ) {
-//    printf( "Masking: " );
     for( int i =0; i < p->size; i++ ) {
-        // For each offset, compute its location on the automaton
         rfca_coord_t c = pattern_offset_abs( pivot, p->offsets[i] );
 
         rfca_setMasked( r, c, true );
-//        printf( "(%d,%d), ", c.row, c.col );
     }
-//    printf( "\n" );
 }
 
 static int 
@@ -163,28 +159,6 @@ createRegion( vouw_t* v, pattern_t* p, rfca_coord_t pivot, int variant, bool mas
     list_add( &(region->list), &(v->encoded->list) );
     return region;
 }
-
-/* 
- * Reencode the rfca encoded in v by adding pattern p to the code table
- */
-/*static void
-updateEncoding( vouw_t* v, pattern_t* p ) {
-    rfca_t* r = v->rfca;
-    pattern_bounds_t pb = pattern_computeBounds( p );
-    
-    for( int i =-pb.rowMin; i < r->buffer->rowCount - pb.rowMax; i++ ) {
-        for( int j =-pb.colMin; j < rfca_rowLength( r, i ) - pb.colMax; j++ ) {
-            rfca_coord_t pivot = { i,j };
-            if( pattern_isMatch( p, r, pivot, 0 ) ) {
-                createRegion( v, p, pivot, true );
-                p->usage++;
-            }
-        }
-    }
-    rfca_unmaskAll( r );
-
-    list_add_tail( &(p->list), &(v->codeTable->list) );
-}*/
 
 static pattern_t*
 mergeEncodedPatterns( vouw_t* v, pattern_t* p1, pattern_t* p2, int variant, pattern_offset_t p2_offset ) {
@@ -538,45 +512,8 @@ vouw_encodeStep( vouw_t* v ) {
     if( bestP1 != bestP2 )
         prunePattern( v, bestP2 );
     
-/*    struct list_head* pos;
-    list_for_each( pos, &(v->codeTable->list) ) {
-        pattern_t* tmp = list_entry( pos, pattern_t, list );
-        prunePattern( v, tmp );
-    }*/
-
     return true;
 }
-
-/*int
-vouw_test( vouw_t* v ) {
-    // Test piece
-    
-    pattern_t* p_union =NULL;
-   
-    region_t* r1 = list_entry( v->encoded->list.next, region_t, list );
-    region_t* r2 = list_entry( r1->list.next, region_t, list );
-
-    printf( "Code lengths | p1: %f, p2 %f; variants | p1: %d, p2: %d\n", 
-            r1->pattern->codeLength, r2->pattern->codeLength, r1->variant, r2->variant );
-    printf( "Total nodes: %d\n", v->rfca->buffer->nodeCount );
-
-    pattern_offset_t p2_offset = pattern_offset( r1->pivot, r2->pivot );
-
-    int usage =computeUsage( v, r1->pattern, r1->variant, r2->pattern, r2->variant, p2_offset );
-    printf( "p_union usage: %d\n", usage );
-
-
-    double gain = computeGain( v, r1->pattern, r2->pattern, usage );
-    printf( "Compression size gain: %f bits\n", gain );
-
-    //updateEncoding( v, p_union );
-    mergeEncodedPatterns( v, r1->pattern, r1->variant, r2->pattern, r2->variant, p2_offset );
-    pattern_list_updateCodeLength( v->codeTable, v->rfca->buffer->nodeCount );
-    v->ctBits = computeCodeTableBits( v );
-    v->encodedBits = computeEncodedBits( v );
-
-    return 0;
-}*/
 
 rfca_t*
 vouw_decode( vouw_t* v ) {
