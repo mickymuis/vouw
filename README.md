@@ -43,7 +43,7 @@ The arguments are the same for every module (the first argument after `./vouw`).
 
 We can use the VOUW algorithm to compress an automaton and view the compressed output, code table and compression ratio:
 ```
-mik@trommel:~/code/vouw/build$ ./vouw encode -m 2 -b 2 -r 6 -i 00110 -f 5
+./vouw encode -m 2 -b 2 -r 6 -i 00110 -f 5
 
 ```
 Which appearently compresses to the following with a ratio of 81%
@@ -66,3 +66,34 @@ Now the real power lies in the compression of an automaton with the code table *
 
 ```
 Notice the extra `using` argument. The ratio is now almost 68%, indicating that 2.2.6 and 2.2.7 are quite similar. If we now were to compress the same automaton with the code table generated from 2.2.8, we would obtain a ratio of 108%, indicating that they are less similar.
+
+2.2.6 compressed by 2.2.7's code table:
+```
+. . . G . . E G . . F . . . . E . . E G . G . . E 
+ . G G . E G . E G . E G . E G . E . G E G E . G 
+  D . G D . E G . C G . C D . E D D E G . . D D 
+   G . . . G . E . . . G . E . . . . . E G E D 
+    . . G . E . G . G . . G . E . G . G D D G 
+     D . . . . . . . C . . . D . . . D . . G 
+      D . . . D . . . . . . . . . . C G . G 
+       . . . . C . . . . . D . . . D G D D 
+        D . . . D . . . . D . . . D G G D 
+         B . . . . . . . . . . . B . . G 
+          B . . . . . . . . . . B G . G 
+           B . . . . . . . . . B G D D 
+            B . . . . . . . . B G G D 
+             B . . . . . . . B . . G 
+              B . . . . . . B G . G 
+               B . . . . . B G D D 
+                B . . . . B G G D 
+                 A . . . A . . G 
+                  A . . A G . G 
+                   A . A G D D 
+                    A A G G D 
+                     A . . G 
+                      G . G 
+                       D D 
+                        D 
+```
+
+
