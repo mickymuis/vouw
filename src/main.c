@@ -31,6 +31,7 @@ main( int _argc, char** _argv ) {
     opts.mode =MODE_DEFAULT;
     opts.right =false;
     opts.rule =0;
+    opts.input = NULL;
     opts.base =BASE_DEFAULT;
     opts.folds =FOLDS_DEFAULT;
     const char* param_module = NULL;
@@ -84,7 +85,8 @@ main( int _argc, char** _argv ) {
 
     int retval = module_call( param_module, opts, argc, argv );
 
-    free( opts.input );
+    if( opts.input )
+        free( opts.input );
     return retval;
 
 }
