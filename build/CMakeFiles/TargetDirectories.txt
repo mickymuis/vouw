@@ -1,0 +1,3 @@
+/home/mik/code/vouw/build/CMakeFiles/rebuild_cache.dir
+/home/mik/code/vouw/build/CMakeFiles/edit_cache.dir
+/home/mik/code/vouw/build/CMakeFiles/vouw.dir
